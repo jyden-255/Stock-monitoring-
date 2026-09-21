@@ -1,0 +1,1141 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#050811">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Stock Monitor">
+  <title>Stock Monitor | Real-Time Institutional Terminal</title>
+  <link id="pwaManifestLink" rel="manifest">
+  <link id="appleTouchIconLink" rel="apple-touch-icon">
+  <link id="faviconLink" rel="icon" type="image/png">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace'],
+          },
+          colors: {
+            emerald: {
+              400: '#34d399',
+              500: '#10b981',
+              600: '#059669',
+            },
+            rose: {
+              400: '#fb7185',
+              500: '#f43f5e',
+            },
+            slate: {
+              850: '#0f172a',
+              900: '#0a0f1d',
+              950: '#050811',
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    :root {
+      box-sizing: border-box;
+    }
+    html {
+      scroll-padding-top: env(safe-area-inset-top, 0px);
+    }
+    body {
+      background-color: #050811;
+      padding-bottom: env(safe-area-inset-bottom, 0px);
+      overscroll-behavior-y: none;
+    }
+
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: rgba(148, 163, 184, 0.2);
+      border-radius: 9999px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: rgba(148, 163, 184, 0.4);
+    }
+
+    @keyframes pulse-green {
+      0%, 100% { background-color: transparent; }
+      50% { background-color: rgba(16, 185, 129, 0.18); }
+    }
+    @keyframes pulse-red {
+      0%, 100% { background-color: transparent; }
+      50% { background-color: rgba(244, 63, 94, 0.18); }
+    }
+    .flash-up {
+      animation: pulse-green 0.75s ease;
+    }
+    .flash-down {
+      animation: pulse-red 0.75s ease;
+    }
+
+    /* ---------- App shell / sticky nav safe area ---------- */
+    #mainNav {
+      top: env(safe-area-inset-top, 0px);
+    }
+
+    /* ---------- Splash screen ---------- */
+    #splashScreen {
+      position: fixed;
+      inset: 0;
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #050811;
+      overflow: hidden;
+      padding-top: env(safe-area-inset-top, 0px);
+      padding-bottom: env(safe-area-inset-bottom, 0px);
+    }
+    #splashScreen::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(circle at 50% 38%, rgba(16,185,129,0.22), transparent 60%);
+    }
+    #splashScreen::after {
+      content: "";
+      position: absolute;
+      width: 140%;
+      height: 140%;
+      background:
+        linear-gradient(rgba(148,163,184,0.05) 1px, transparent 1px) 0 0 / 34px 34px,
+        linear-gradient(90deg, rgba(148,163,184,0.05) 1px, transparent 1px) 0 0 / 34px 34px;
+      transform: rotate(-4deg);
+      opacity: 0.5;
+    }
+    .splash-logo-box {
+      opacity: 0;
+      animation: logo-pop 0.55s cubic-bezier(0.34,1.56,0.64,1) 0.05s forwards;
+    }
+    #splashPath {
+      stroke-dasharray: 90;
+      stroke-dashoffset: 90;
+      animation: draw-line 1.05s ease-out 0.25s forwards;
+    }
+    #splashDot {
+      opacity: 0;
+      animation: dot-pop 0.35s ease-out 1.2s forwards;
+    }
+    .splash-text {
+      opacity: 0;
+      transform: translateY(10px);
+      animation: fade-up 0.6s ease-out 0.55s forwards;
+    }
+    .splash-bar-track {
+      opacity: 0;
+      animation: fade-up 0.6s ease-out 0.75s forwards;
+    }
+    @keyframes draw-line {
+      to { stroke-dashoffset: 0; }
+    }
+    @keyframes dot-pop {
+      from { opacity: 0; transform: scale(0); }
+      to { opacity: 1; transform: scale(1); }
+    }
+    @keyframes logo-pop {
+      from { opacity: 0; transform: scale(0.55) rotate(-10deg); }
+      to { opacity: 1; transform: scale(1) rotate(0deg); }
+    }
+    @keyframes fade-up {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    #splashScreen.splash-hide {
+      animation: splash-fade-out 0.55s ease forwards;
+      pointer-events: none;
+    }
+    @keyframes splash-fade-out {
+      to { opacity: 0; transform: scale(1.04); }
+    }
+    #appRoot {
+      opacity: 0;
+    }
+    #appRoot.app-show {
+      animation: app-fade-in 0.7s ease forwards;
+    }
+    @keyframes app-fade-in {
+      to { opacity: 1; }
+    }
+  </style>
+  <script>
+    // Build the Web App Manifest inline (real PNG icons at the sizes Chrome
+    // and iOS expect), so this single file is a fully installable PWA with
+    // no external icon/manifest files needed.
+    (function setupPWA() {
+      const ICON_192 = "data:image/png;base64,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";
+      const ICON_512 = "data:image/png;base64,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";
+      const ICON_192_MASKABLE = "data:image/png;base64,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";
+      const ICON_512_MASKABLE = "data:image/png;base64,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";
+
+      const manifest = {
+        name: "Stock Monitor — Institutional Direct Feed",
+        short_name: "Stock Monitor",
+        description: "Real-time portfolio monitor and order ticket terminal.",
+        start_url: ".",
+        scope: ".",
+        id: ".",
+        display: "standalone",
+        display_override: ["standalone", "minimal-ui"],
+        orientation: "portrait",
+        background_color: "#050811",
+        theme_color: "#050811",
+        icons: [
+          { src: ICON_192, sizes: "192x192", type: "image/png", purpose: "any" },
+          { src: ICON_512, sizes: "512x512", type: "image/png", purpose: "any" },
+          { src: ICON_192_MASKABLE, sizes: "192x192", type: "image/png", purpose: "maskable" },
+          { src: ICON_512_MASKABLE, sizes: "512x512", type: "image/png", purpose: "maskable" }
+        ]
+      };
+      const manifestDataUri = "data:application/manifest+json;utf8," + encodeURIComponent(JSON.stringify(manifest));
+
+      document.addEventListener('DOMContentLoaded', function () {
+        document.getElementById('pwaManifestLink').setAttribute('href', manifestDataUri);
+        document.getElementById('appleTouchIconLink').setAttribute('href', ICON_192);
+        document.getElementById('faviconLink').setAttribute('href', ICON_192);
+      });
+    })();
+  </script>
+</head>
+
+<body class="bg-slate-950 text-slate-100 font-sans min-h-screen selection:bg-emerald-500 selection:text-black">
+
+  <!-- ============= SPLASH / LAUNCH SCREEN ============= -->
+  <div id="splashScreen">
+    <div class="relative flex flex-col items-center gap-5 px-6">
+      <div class="w-24 h-24 rounded-3xl bg-gradient-to-tr from-emerald-500 via-teal-400 to-cyan-500 flex items-center justify-center shadow-2xl shadow-emerald-500/30 splash-logo-box">
+        <svg class="w-14 h-14" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path id="splashPath" d="M4 34 L14 25 L20 29 L29 15 L44 5" stroke="#050811" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/>
+          <circle id="splashDot" cx="44" cy="5" r="3.5" fill="#050811"/>
+        </svg>
+      </div>
+      <div class="text-center splash-text">
+        <div class="font-extrabold text-2xl sm:text-3xl tracking-tight text-white">STOCK MONITOR</div>
+        <div class="text-[10px] uppercase tracking-[0.35em] font-mono text-emerald-400 mt-1.5">Institutional Direct Feed</div>
+      </div>
+      <div class="w-40 h-1 rounded-full bg-slate-800 overflow-hidden mt-1 splash-bar-track">
+        <div id="splashProgress" class="h-full bg-gradient-to-r from-emerald-500 to-cyan-400 rounded-full" style="width:0%"></div>
+      </div>
+      <div class="text-[10px] font-mono text-slate-500 tracking-wider splash-bar-track">Connecting to SIP feed…</div>
+    </div>
+  </div>
+
+  <!-- ============= APP ROOT ============= -->
+  <div id="appRoot">
+
+  <!-- Main Navigation Bar -->
+  <nav id="mainNav" class="border-b border-slate-800/80 bg-slate-900/80 backdrop-blur-xl sticky z-40 px-4 sm:px-8 py-3 flex items-center justify-between">
+    <div class="flex items-center gap-6">
+      <!-- App Identity -->
+      <div class="flex items-center gap-3">
+        <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-emerald-500 via-teal-400 to-cyan-500 flex items-center justify-center shadow-lg shadow-emerald-500/20">
+          <svg class="w-5 h-5 text-slate-950" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M4 34 L14 25 L20 29 L29 15 L44 5" stroke="currentColor" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/>
+            <circle cx="44" cy="5" r="3.5" fill="currentColor"/>
+          </svg>
+        </div>
+        <div>
+          <span class="font-extrabold text-base tracking-tight bg-gradient-to-r from-white via-slate-200 to-slate-400 bg-clip-text text-transparent">STOCK MONITOR</span>
+          <span class="text-[9px] uppercase tracking-widest font-mono text-emerald-400 block leading-none mt-0.5">INSTITUTIONAL DIRECT FEED</span>
+        </div>
+      </div>
+
+      <!-- Primary Nav Items -->
+      <div class="hidden lg:flex items-center space-x-1 text-xs text-slate-400 font-medium">
+        <button class="px-3 py-1.5 rounded-lg text-white bg-slate-800/90 shadow-inner font-semibold">Portfolio Overview</button>
+        <button class="px-3 py-1.5 rounded-lg hover:text-white transition">Equities & ETFs</button>
+        <button class="px-3 py-1.5 rounded-lg hover:text-white transition">Options Flow</button>
+        <button class="px-3 py-1.5 rounded-lg hover:text-white transition">Direct Routing</button>
+      </div>
+    </div>
+
+    <!-- Right Header Actions & User Profile -->
+    <div class="flex items-center gap-3 sm:gap-4">
+      <!-- Exchange Feed Status Indicator -->
+      <div class="hidden sm:flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-slate-900 border border-slate-800 text-[11px] font-mono">
+        <span class="relative flex h-2 w-2">
+          <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+          <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+        </span>
+        <span class="text-slate-300">SIP FEED: 0.12ms</span>
+      </div>
+
+      <!-- Quick Trade Button -->
+      <button onclick="openTradeModal()" class="px-3.5 py-1.5 text-xs font-semibold rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 shadow-lg shadow-emerald-500/20 active:scale-95 transition-all flex items-center gap-1.5">
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"></path>
+        </svg>
+        Execute Order
+      </button>
+
+      <!-- User Profile Pill -->
+      <div class="flex items-center gap-2.5 pl-2 border-l border-slate-800">
+        <div class="w-8 h-8 rounded-full bg-gradient-to-br from-slate-700 to-slate-900 border border-emerald-500/40 flex items-center justify-center font-bold text-xs text-emerald-400 font-mono shadow-sm">
+          PT
+        </div>
+        <div class="hidden md:block text-left leading-tight">
+          <div class="text-xs font-semibold text-white">Prithvi Thakre</div>
+          <div class="text-[10px] font-mono text-slate-400">ACCT #PM-882109</div>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+
+    <!-- Hero Balance & Asset Overview Card -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <!-- Main Portfolio Value Card -->
+      <div class="lg:col-span-2 bg-gradient-to-br from-slate-900/90 via-slate-900/60 to-slate-950 border border-slate-800/80 rounded-2xl p-6 sm:p-7 backdrop-blur-md relative overflow-hidden shadow-2xl">
+        <div class="absolute -right-20 -top-20 w-72 h-72 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none"></div>
+        <div class="absolute -left-20 -bottom-20 w-64 h-64 bg-cyan-500/10 rounded-full blur-3xl pointer-events-none"></div>
+
+        <div class="relative z-10 flex flex-col md:flex-row md:items-end justify-between gap-6">
+          <div>
+            <div class="flex items-center gap-2 mb-1.5">
+              <span class="text-xs uppercase tracking-wider font-mono text-slate-400">Account Net Liquidation Value</span>
+              <span class="bg-emerald-500/10 text-emerald-400 text-[10px] font-semibold px-2 py-0.5 rounded border border-emerald-500/20">Active Session</span>
+            </div>
+
+            <div class="flex items-baseline gap-2">
+              <h1 id="total-portfolio-value" class="text-4xl sm:text-5xl font-extrabold tracking-tight text-white font-mono">
+                $890,567.42
+              </h1>
+            </div>
+
+            <div class="flex flex-wrap items-center gap-3 mt-3">
+              <span id="day-gain-badge" class="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs sm:text-sm font-semibold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 font-mono">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 10l7-7m0 0l7 7m-7-7v18"></path>
+                </svg>
+                +$14,320.18 (+1.63%) Today
+              </span>
+              <span class="text-xs text-slate-400">Unrealized Total: <strong class="text-emerald-400 font-mono">+$248,790.00 (+38.7%)</strong></span>
+            </div>
+          </div>
+
+          <!-- Timeframe selector -->
+          <div class="flex items-center bg-slate-950/80 p-1 rounded-xl border border-slate-800/80 gap-1 self-start md:self-end">
+            <button onclick="setTimeframe('1D')" id="tf-1D" class="tf-btn px-2.5 py-1 text-xs font-semibold rounded-lg bg-emerald-500 text-slate-950 shadow">1D</button>
+            <button onclick="setTimeframe('1W')" id="tf-1W" class="tf-btn px-2.5 py-1 text-xs font-semibold rounded-lg text-slate-400 hover:text-white transition">1W</button>
+            <button onclick="setTimeframe('1M')" id="tf-1M" class="tf-btn px-2.5 py-1 text-xs font-semibold rounded-lg text-slate-400 hover:text-white transition">1M</button>
+            <button onclick="setTimeframe('1Y')" id="tf-1Y" class="tf-btn px-2.5 py-1 text-xs font-semibold rounded-lg text-slate-400 hover:text-white transition">1Y</button>
+            <button onclick="setTimeframe('ALL')" id="tf-ALL" class="tf-btn px-2.5 py-1 text-xs font-semibold rounded-lg text-slate-400 hover:text-white transition">ALL</button>
+          </div>
+        </div>
+
+        <!-- Interactive Chart -->
+        <div class="mt-6 h-60 sm:h-64 w-full relative">
+          <canvas id="portfolioChart"></canvas>
+        </div>
+      </div>
+
+      <!-- Quick Capital & Allocation Metrics -->
+      <div class="flex flex-col gap-6">
+        <!-- Asset Allocation Card -->
+        <div class="bg-slate-900/80 border border-slate-800/80 rounded-2xl p-5 backdrop-blur-md flex flex-col justify-between">
+          <div class="flex items-center justify-between mb-2">
+            <h3 class="text-sm font-semibold text-slate-200">Portfolio Breakdown</h3>
+            <span class="text-xs text-slate-400 font-mono">8 Core Positions</span>
+          </div>
+
+          <div class="h-40 relative flex items-center justify-center">
+            <canvas id="allocationChart"></canvas>
+          </div>
+
+          <div class="grid grid-cols-2 gap-2 mt-2 pt-3 border-t border-slate-800 text-xs font-mono">
+            <div class="flex items-center gap-2">
+              <span class="w-2.5 h-2.5 rounded-full bg-emerald-400"></span>
+              <span class="text-slate-300">Mega Tech: 52%</span>
+            </div>
+            <div class="flex items-center gap-2">
+              <span class="w-2.5 h-2.5 rounded-full bg-cyan-400"></span>
+              <span class="text-slate-300">Semis / AI: 24%</span>
+            </div>
+            <div class="flex items-center gap-2">
+              <span class="w-2.5 h-2.5 rounded-full bg-violet-400"></span>
+              <span class="text-slate-300">ETFs: 16%</span>
+            </div>
+            <div class="flex items-center gap-2">
+              <span class="w-2.5 h-2.5 rounded-full bg-amber-400"></span>
+              <span class="text-slate-300">Digital Assets: 8%</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Available Buying Power -->
+        <div class="bg-slate-900/80 border border-slate-800/80 rounded-2xl p-5 backdrop-blur-md">
+          <div class="flex justify-between items-center text-xs text-slate-400 mb-1">
+            <span>Settled Cash / Buying Power</span>
+            <span class="text-emerald-400 font-mono font-medium">Earns 4.85% APY</span>
+          </div>
+          <div id="buying-power-display" class="text-2xl font-bold font-mono text-white">$42,390.15</div>
+          <div class="flex gap-2 mt-3">
+            <button onclick="openDepositModal()" class="flex-1 py-1.5 text-xs font-semibold rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 transition">Deposit Funds</button>
+            <button onclick="toggleLiveTicks()" id="toggle-stream-btn" class="px-3 py-1.5 text-xs font-semibold rounded-lg border border-slate-700 hover:border-slate-500 text-slate-300 transition">Pause Feed</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Active Holdings Table -->
+    <div class="bg-slate-900/70 border border-slate-800/80 rounded-2xl overflow-hidden backdrop-blur-md shadow-xl">
+      <div class="p-5 border-b border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h2 class="text-base sm:text-lg font-bold text-white tracking-tight">Active Holdings</h2>
+          <p class="text-xs text-slate-400 mt-0.5">Real-time consolidated positions across primary custodians</p>
+        </div>
+
+        <div class="flex items-center gap-2.5">
+          <div class="relative">
+            <svg class="w-4 h-4 text-slate-400 absolute left-3 top-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+            </svg>
+            <input type="text" id="tableSearch" onkeyup="filterHoldings()" placeholder="Filter symbols, assets..." class="bg-slate-950/80 border border-slate-800 text-xs rounded-xl pl-9 pr-3 py-2 text-slate-200 focus:outline-none focus:border-emerald-500 w-48 sm:w-60 transition">
+          </div>
+        </div>
+      </div>
+
+      <div class="overflow-x-auto">
+        <table class="w-full text-left text-sm" id="holdingsTable">
+          <thead class="bg-slate-950/60 text-slate-400 text-[10px] sm:text-[11px] uppercase tracking-wider font-mono border-b border-slate-800/80">
+            <tr>
+              <th class="py-3 px-4 sm:px-6">Asset / Ticker</th>
+              <th class="py-3 px-4">Market Price</th>
+              <th class="py-3 px-4">Position Qty</th>
+              <th class="py-3 px-4">Market Value</th>
+              <th class="py-3 px-4">Today's P&amp;L</th>
+              <th class="py-3 px-4">Total Return</th>
+              <th class="py-3 px-4 text-right">Action</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-800/60 font-mono text-xs" id="holdingsBody">
+            <!-- Dynamically populated -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Watchlist & Execution Terminal Ledger -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <!-- Direct Market Watchlist -->
+      <div class="bg-slate-900/70 border border-slate-800/80 rounded-2xl p-5 backdrop-blur-md">
+        <div class="flex items-center justify-between mb-4">
+          <div>
+            <h3 class="font-bold text-white text-base">Key Index & Market Watchlist</h3>
+            <p class="text-xs text-slate-400">Direct NBBO level 1 quotes</p>
+          </div>
+          <span class="text-xs font-mono px-2 py-0.5 rounded bg-slate-800 text-slate-300">4 Monitored</span>
+        </div>
+
+        <div class="space-y-3" id="watchlistContainer">
+          <!-- Populated dynamically -->
+        </div>
+      </div>
+
+      <!-- Execution Audit & FIX Routing Feed -->
+      <div class="bg-slate-900/70 border border-slate-800/80 rounded-2xl p-5 backdrop-blur-md flex flex-col justify-between">
+        <div>
+          <div class="flex items-center justify-between mb-2">
+            <h3 class="font-bold text-white text-base">Execution & Clearing Ledger</h3>
+            <span class="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">FIX Protocol 4.4</span>
+          </div>
+          <p class="text-xs text-slate-400 mb-4">DTC Cleared / Custody: Apex Clearing Corp</p>
+
+          <div class="space-y-2.5" id="transactionAuditList">
+            <div class="p-2.5 rounded-xl bg-slate-950/60 border border-slate-800/60 flex items-center justify-between text-xs">
+              <div class="flex items-center gap-2">
+                <span class="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 text-[10px] font-bold">BUY</span>
+                <span class="text-white font-semibold">NVDA</span>
+                <span class="text-slate-400">30 shares @ $128.40</span>
+              </div>
+              <span class="text-slate-500 font-mono text-[11px]">Today 14:12</span>
+            </div>
+
+            <div class="p-2.5 rounded-xl bg-slate-950/60 border border-slate-800/60 flex items-center justify-between text-xs">
+              <div class="flex items-center gap-2">
+                <span class="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 text-[10px] font-bold">DIVIDEND</span>
+                <span class="text-white font-semibold">VOO</span>
+                <span class="text-slate-400">Reinvested +$640.20</span>
+              </div>
+              <span class="text-slate-500 font-mono text-[11px]">Yesterday</span>
+            </div>
+
+            <div class="p-2.5 rounded-xl bg-slate-950/60 border border-slate-800/60 flex items-center justify-between text-xs">
+              <div class="flex items-center gap-2">
+                <span class="px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-400 text-[10px] font-bold">SELL</span>
+                <span class="text-white font-semibold">TSLA</span>
+                <span class="text-slate-400">15 shares @ $248.80</span>
+              </div>
+              <span class="text-slate-500 font-mono text-[11px]">Sep 18</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="mt-4 pt-3 border-t border-slate-800 text-xs flex items-center justify-between text-slate-400">
+          <span>Brokerage Protection: <strong>SIPC Insured to $500k</strong></span>
+          <span class="text-emerald-400 flex items-center gap-1 font-mono text-[11px]">
+            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span> Synced
+          </span>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- Trade Order Execution Modal -->
+  <div id="tradeModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm hidden">
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-md p-6 m-4 shadow-2xl relative">
+      <button onclick="closeTradeModal()" class="absolute right-4 top-4 text-slate-400 hover:text-white transition">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+        </svg>
+      </button>
+
+      <h3 class="text-lg font-bold text-white mb-1">Stock Monitor | Order Ticket</h3>
+      <p class="text-xs text-slate-400 mb-4">Direct market access execution routing</p>
+
+      <div class="space-y-4 text-sm font-sans">
+        <div class="grid grid-cols-2 gap-2 bg-slate-950 p-1 rounded-xl border border-slate-800">
+          <button id="trade-type-buy" onclick="setTradeType('BUY')" class="py-1.5 font-bold rounded-lg bg-emerald-500 text-slate-950 shadow text-xs transition">BUY</button>
+          <button id="trade-type-sell" onclick="setTradeType('SELL')" class="py-1.5 font-bold rounded-lg text-slate-400 hover:text-white text-xs transition">SELL</button>
+        </div>
+
+        <div>
+          <label class="text-xs text-slate-400 font-medium mb-1 block">Selected Asset</label>
+          <select id="tradeSymbol" onchange="updateTradeEstimate()" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white font-mono text-sm focus:border-emerald-500 outline-none">
+            <!-- options populated via JS -->
+          </select>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="text-xs text-slate-400 font-medium mb-1 block">Order Type</label>
+            <select class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white text-sm focus:border-emerald-500 outline-none">
+              <option>Market (Day)</option>
+              <option>Limit (GTC)</option>
+              <option>Stop Loss</option>
+            </select>
+          </div>
+          <div>
+            <label class="text-xs text-slate-400 font-medium mb-1 block">Shares / Qty</label>
+            <input type="number" id="tradeQty" value="10" min="1" max="5000" oninput="updateTradeEstimate()" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white font-mono text-sm focus:border-emerald-500 outline-none">
+          </div>
+        </div>
+
+        <div class="bg-slate-950 p-3.5 rounded-xl border border-slate-800 text-xs font-mono space-y-1.5">
+          <div class="flex justify-between text-slate-400">
+            <span>Market Quote:</span>
+            <span id="tradeEstimatePrice" class="text-white">$0.00</span>
+          </div>
+          <div class="flex justify-between text-slate-400">
+            <span>Routing Fee:</span>
+            <span class="text-emerald-400">$0.00 (Direct Route)</span>
+          </div>
+          <div class="border-t border-slate-800 pt-1.5 flex justify-between font-bold">
+            <span class="text-slate-300">Total Settlement Value:</span>
+            <span id="tradeTotalAmount" class="text-white text-sm">$0.00</span>
+          </div>
+        </div>
+
+        <div id="tradeAlertMsg" class="hidden p-2.5 rounded-lg text-xs font-medium"></div>
+
+        <button onclick="submitTradeOrder()" class="w-full py-3 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 font-bold text-slate-950 transition active:scale-[0.98] shadow-lg shadow-emerald-500/25">
+          Transmit Order to Exchange
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Deposit Capital Modal -->
+  <div id="depositModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm hidden">
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-sm p-6 m-4 shadow-2xl relative">
+      <button onclick="closeDepositModal()" class="absolute right-4 top-4 text-slate-400 hover:text-white transition">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+        </svg>
+      </button>
+
+      <h3 class="text-lg font-bold text-white mb-1">Wire & ACH Deposit</h3>
+      <p class="text-xs text-slate-400 mb-4">Transfer funds to account #PM-882109</p>
+
+      <div class="space-y-3">
+        <div>
+          <label class="text-xs text-slate-400 font-medium mb-1 block">Deposit Amount ($)</label>
+          <input type="number" id="depositAmount" value="5000" step="1000" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white font-mono text-sm focus:border-emerald-500 outline-none">
+        </div>
+
+        <div class="flex gap-2">
+          <button onclick="quickDepositVal(1000)" class="flex-1 py-1 text-xs bg-slate-800 text-slate-300 rounded-lg hover:bg-slate-700">+$1k</button>
+          <button onclick="quickDepositVal(5000)" class="flex-1 py-1 text-xs bg-slate-800 text-slate-300 rounded-lg hover:bg-slate-700">+$5k</button>
+          <button onclick="quickDepositVal(25000)" class="flex-1 py-1 text-xs bg-slate-800 text-slate-300 rounded-lg hover:bg-slate-700">+$25k</button>
+        </div>
+
+        <button onclick="executeDeposit()" class="w-full mt-2 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 font-bold text-slate-950 text-sm transition shadow-lg shadow-emerald-500/20">
+          Complete Transfer
+        </button>
+      </div>
+    </div>
+  </div>
+
+  </div> <!-- /#appRoot -->
+
+  <script>
+    // Initial State
+    let portfolioData = {
+      cash: 42390.15,
+      holdings: [
+        { symbol: "NVDA", name: "NVIDIA Corp", shares: 1450, currentPrice: 134.80, avgCost: 82.50, color: "#10b981", category: "Semis / AI" },
+        { symbol: "AAPL", name: "Apple Inc.", shares: 1020, currentPrice: 232.40, avgCost: 178.20, color: "#06b6d4", category: "Mega Tech" },
+        { symbol: "MSFT", name: "Microsoft Corp", shares: 420, currentPrice: 448.15, avgCost: 380.00, color: "#3b82f6", category: "Mega Tech" },
+        { symbol: "AMZN", name: "Amazon.com Inc", shares: 510, currentPrice: 189.65, avgCost: 142.10, color: "#8b5cf6", category: "Mega Tech" },
+        { symbol: "GOOGL", name: "Alphabet Inc Class A", shares: 480, currentPrice: 165.25, avgCost: 135.00, color: "#ec4899", category: "Mega Tech" },
+        { symbol: "TSLA", name: "Tesla Inc", shares: 320, currentPrice: 254.90, avgCost: 210.40, color: "#f43f5e", category: "Semis / AI" },
+        { symbol: "VOO", name: "Vanguard S&P 500 ETF", shares: 250, currentPrice: 512.40, avgCost: 440.00, color: "#6366f1", category: "ETFs & Indices" },
+        { symbol: "BTC", name: "Bitcoin Spot Trust", shares: 1.15, currentPrice: 62450.00, avgCost: 45000.00, color: "#f59e0b", category: "Crypto / BTC" }
+      ],
+      watchlist: [
+        { symbol: "AMD", name: "Advanced Micro Devices", price: 156.40, change: 2.84, pct: 1.85 },
+        { symbol: "META", name: "Meta Platforms", price: 542.20, change: -4.10, pct: -0.75 },
+        { symbol: "PLTR", name: "Palantir Technologies", price: 37.15, change: 1.45, pct: 4.06 },
+        { symbol: "ETH", name: "Ethereum Spot", price: 2480.00, change: 65.50, pct: 2.71 }
+      ]
+    };
+
+    let currentTimeframe = '1D';
+    let isStreamActive = true;
+    let portfolioChartInstance = null;
+    let allocationChartInstance = null;
+    let activeTradeType = 'BUY';
+
+    const formatCurrency = (num) => {
+      return new Intl.NumberFormat('en-US', {
+        style: 'currency',
+        currency: 'USD',
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+      }).format(num);
+    };
+
+    const formatPct = (num) => {
+      const sign = num >= 0 ? '+' : '';
+      return `${sign}${num.toFixed(2)}%`;
+    };
+
+    function calculateTotalPortfolioValue() {
+      const totalHoldings = portfolioData.holdings.reduce((sum, h) => sum + (h.shares * h.currentPrice), 0);
+      return totalHoldings + portfolioData.cash;
+    }
+
+    function updateHeaderValues() {
+      const total = calculateTotalPortfolioValue();
+      document.getElementById('total-portfolio-value').innerText = formatCurrency(total);
+      document.getElementById('buying-power-display').innerText = formatCurrency(portfolioData.cash);
+    }
+
+    function renderHoldingsTable() {
+      const tbody = document.getElementById('holdingsBody');
+      tbody.innerHTML = '';
+
+      portfolioData.holdings.forEach((item, index) => {
+        const totalVal = item.shares * item.currentPrice;
+        const totalInvested = item.shares * item.avgCost;
+        const totalProfit = totalVal - totalInvested;
+        const totalProfitPct = (totalProfit / totalInvested) * 100;
+
+        const todayGainPct = (Math.sin(index + Date.now() / 20000) * 1.5) + 1.1;
+        const todayGainVal = totalVal * (todayGainPct / 100);
+
+        const tr = document.createElement('tr');
+        tr.id = `row-${item.symbol}`;
+        tr.className = "hover:bg-slate-800/40 transition-colors border-b border-slate-800/60";
+
+        tr.innerHTML = `
+          <td class="py-3.5 px-4 sm:px-6">
+            <div class="flex items-center gap-3">
+              <div class="w-8 h-8 rounded-lg flex items-center justify-center font-bold text-xs" style="background: ${item.color}20; color: ${item.color}; border: 1px solid ${item.color}40;">
+                ${item.symbol.slice(0, 3)}
+              </div>
+              <div>
+                <div class="font-bold text-white text-sm">${item.symbol}</div>
+                <div class="text-[11px] text-slate-400 font-sans">${item.name}</div>
+              </div>
+            </div>
+          </td>
+          <td class="py-3.5 px-4 font-semibold text-slate-100" id="price-${item.symbol}">
+            ${formatCurrency(item.currentPrice)}
+          </td>
+          <td class="py-3.5 px-4 text-slate-300">
+            <div>${item.shares.toLocaleString()} ${item.symbol === 'BTC' ? 'BTC' : 'shares'}</div>
+            <div class="text-[10px] text-slate-500">Cost: ${formatCurrency(item.avgCost)}</div>
+          </td>
+          <td class="py-3.5 px-4 font-bold text-slate-100" id="val-${item.symbol}">
+            ${formatCurrency(totalVal)}
+          </td>
+          <td class="py-3.5 px-4">
+            <span class="${todayGainVal >= 0 ? 'text-emerald-400' : 'text-rose-400'} flex items-center gap-1 font-semibold">
+              ${todayGainVal >= 0 ? '+' : ''}${formatCurrency(todayGainVal)} (${formatPct(todayGainPct)})
+            </span>
+          </td>
+          <td class="py-3.5 px-4">
+            <span class="${totalProfit >= 0 ? 'text-emerald-400' : 'text-rose-400'} font-semibold">
+              ${formatPct(totalProfitPct)}
+            </span>
+            <div class="text-[10px] text-slate-500">${formatCurrency(totalProfit)}</div>
+          </td>
+          <td class="py-3.5 px-4 text-right">
+            <button onclick="triggerQuickTrade('${item.symbol}')" class="px-3 py-1 rounded-lg bg-slate-800 hover:bg-emerald-500 hover:text-slate-950 text-slate-300 text-xs font-semibold transition border border-slate-700">
+              Trade
+            </button>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    function filterHoldings() {
+      const q = document.getElementById('tableSearch').value.toLowerCase();
+      const rows = document.getElementById('holdingsBody').getElementsByTagName('tr');
+      for (let r of rows) {
+        const text = r.innerText.toLowerCase();
+        r.style.display = text.includes(q) ? '' : 'none';
+      }
+    }
+
+    function renderWatchlist() {
+      const container = document.getElementById('watchlistContainer');
+      container.innerHTML = '';
+
+      portfolioData.watchlist.forEach(w => {
+        const isUp = w.pct >= 0;
+        const div = document.createElement('div');
+        div.className = "flex items-center justify-between p-3 rounded-xl bg-slate-950/60 border border-slate-800/80 hover:border-slate-700 transition";
+        div.innerHTML = `
+          <div class="flex items-center gap-3">
+            <div class="font-mono font-bold text-white text-sm">${w.symbol}</div>
+            <div class="text-xs text-slate-400 hidden sm:inline">${w.name}</div>
+          </div>
+          <div class="flex items-center gap-4 font-mono text-xs">
+            <span class="text-slate-200 font-semibold">${formatCurrency(w.price)}</span>
+            <span class="px-2 py-0.5 rounded ${isUp ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-rose-500/10 text-rose-400 border border-rose-500/20'}">
+              ${isUp ? '+' : ''}${w.pct}%
+            </span>
+            <button onclick="triggerQuickTrade('${w.symbol}')" class="text-slate-400 hover:text-emerald-400 text-xs transition">
+              +
+            </button>
+          </div>
+        `;
+        container.appendChild(div);
+      });
+    }
+
+    function generateTimeframeData(tf) {
+      let labels = [];
+      let data = [];
+      const currentNetWorth = calculateTotalPortfolioValue();
+
+      if (tf === '1D') {
+        const times = ["9:30 AM", "10:15 AM", "11:00 AM", "11:45 AM", "12:30 PM", "1:15 PM", "2:00 PM", "2:45 PM", "3:30 PM", "4:00 PM"];
+        labels = times;
+        let walk = currentNetWorth - 14320.18;
+        for (let i = 0; i < times.length; i++) {
+          const progress = i / (times.length - 1);
+          walk += (Math.random() * 2100 - 800) + (progress * 700);
+          data.push(Math.round(walk));
+        }
+        data[data.length - 1] = Math.round(currentNetWorth);
+      } else if (tf === '1W') {
+        labels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
+        data = [868000, 874500, 871200, 882000, Math.round(currentNetWorth)];
+      } else if (tf === '1M') {
+        labels = ['Week 1', 'Week 2', 'Week 3', 'Week 4', 'Present'];
+        data = [835000, 848000, 862000, 878000, Math.round(currentNetWorth)];
+      } else if (tf === '1Y') {
+        labels = ['Oct', 'Dec', 'Feb', 'Apr', 'Jun', 'Aug', 'Sep'];
+        data = [650000, 685000, 720000, 765000, 810000, 855000, Math.round(currentNetWorth)];
+      } else if (tf === 'ALL') {
+        labels = ['2022', '2023', '2024', '2025', '2026'];
+        data = [420000, 530000, 680000, 795000, Math.round(currentNetWorth)];
+      }
+
+      return { labels, data };
+    }
+
+    function initPortfolioChart() {
+      const ctx = document.getElementById('portfolioChart').getContext('2d');
+      const { labels, data } = generateTimeframeData(currentTimeframe);
+
+      const gradient = ctx.createLinearGradient(0, 0, 0, 300);
+      gradient.addColorStop(0, 'rgba(16, 185, 129, 0.35)');
+      gradient.addColorStop(1, 'rgba(16, 185, 129, 0.0)');
+
+      portfolioChartInstance = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: labels,
+          datasets: [{
+            label: 'Net Portfolio',
+            data: data,
+            borderColor: '#10b981',
+            borderWidth: 2.5,
+            pointRadius: 0,
+            pointHoverRadius: 6,
+            pointHoverBackgroundColor: '#10b981',
+            pointHoverBorderColor: '#ffffff',
+            pointHoverBorderWidth: 2,
+            fill: true,
+            backgroundColor: gradient,
+            tension: 0.35
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              mode: 'index',
+              intersect: false,
+              backgroundColor: 'rgba(15, 23, 42, 0.95)',
+              titleColor: '#94a3b8',
+              bodyColor: '#10b981',
+              borderColor: '#334155',
+              borderWidth: 1,
+              bodyFont: { family: 'JetBrains Mono', weight: 'bold', size: 13 },
+              titleFont: { family: 'Inter', size: 11 },
+              padding: 10,
+              displayColors: false,
+              callbacks: {
+                label: (ctx) => formatCurrency(ctx.parsed.y)
+              }
+            }
+          },
+          scales: {
+            x: {
+              grid: { display: false, drawBorder: false },
+              ticks: { color: '#64748b', font: { family: 'Inter', size: 11 } }
+            },
+            y: {
+              position: 'right',
+              grid: { color: 'rgba(51, 65, 85, 0.3)', drawBorder: false },
+              ticks: {
+                color: '#64748b',
+                font: { family: 'JetBrains Mono', size: 11 },
+                callback: (val) => '$' + (val / 1000).toFixed(0) + 'k'
+              }
+            }
+          }
+        }
+      });
+    }
+
+    function initAllocationChart() {
+      const ctx = document.getElementById('allocationChart').getContext('2d');
+      const labels = portfolioData.holdings.map(h => h.symbol);
+      const data = portfolioData.holdings.map(h => h.shares * h.currentPrice);
+      const colors = portfolioData.holdings.map(h => h.color);
+
+      if (allocationChartInstance) {
+        allocationChartInstance.destroy();
+      }
+
+      allocationChartInstance = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+          labels: labels,
+          datasets: [{
+            data: data,
+            backgroundColor: colors,
+            borderWidth: 2,
+            borderColor: '#0f172a',
+            hoverOffset: 6
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          cutout: '72%',
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              backgroundColor: '#0f172a',
+              titleFont: { family: 'Inter' },
+              bodyFont: { family: 'JetBrains Mono' },
+              callbacks: {
+                label: (ctx) => `${ctx.label}: ${formatCurrency(ctx.parsed)}`
+              }
+            }
+          }
+        }
+      });
+    }
+
+    function setTimeframe(tf) {
+      currentTimeframe = tf;
+      document.querySelectorAll('.tf-btn').forEach(b => {
+        b.className = 'tf-btn px-2.5 py-1 text-xs font-semibold rounded-lg text-slate-400 hover:text-white transition';
+      });
+      const activeBtn = document.getElementById(`tf-${tf}`);
+      activeBtn.className = 'tf-btn px-2.5 py-1 text-xs font-semibold rounded-lg bg-emerald-500 text-slate-950 shadow';
+
+      const { labels, data } = generateTimeframeData(tf);
+      portfolioChartInstance.data.labels = labels;
+      portfolioChartInstance.data.datasets[0].data = data;
+      portfolioChartInstance.update();
+    }
+
+    function startRealTimeTicker() {
+      setInterval(() => {
+        if (!isStreamActive) return;
+
+        const randomIndex = Math.floor(Math.random() * portfolioData.holdings.length);
+        const item = portfolioData.holdings[randomIndex];
+        const percentDelta = (Math.random() * 0.4 - 0.19) / 100;
+        const priceDiff = item.currentPrice * percentDelta;
+
+        item.currentPrice = +(item.currentPrice + priceDiff).toFixed(2);
+
+        const rowEl = document.getElementById(`row-${item.symbol}`);
+        const priceEl = document.getElementById(`price-${item.symbol}`);
+        const valEl = document.getElementById(`val-${item.symbol}`);
+
+        if (priceEl && valEl) {
+          priceEl.innerText = formatCurrency(item.currentPrice);
+          valEl.innerText = formatCurrency(item.shares * item.currentPrice);
+
+          const flashClass = priceDiff >= 0 ? 'flash-up' : 'flash-down';
+          rowEl.classList.remove('flash-up', 'flash-down');
+          void rowEl.offsetWidth;
+          rowEl.classList.add(flashClass);
+        }
+
+        updateHeaderValues();
+
+        if (currentTimeframe === '1D' && portfolioChartInstance) {
+          const total = calculateTotalPortfolioValue();
+          const len = portfolioChartInstance.data.datasets[0].data.length;
+          portfolioChartInstance.data.datasets[0].data[len - 1] = Math.round(total);
+          portfolioChartInstance.update('none');
+        }
+
+      }, 1500);
+    }
+
+    function toggleLiveTicks() {
+      isStreamActive = !isStreamActive;
+      const btn = document.getElementById('toggle-stream-btn');
+      btn.innerText = isStreamActive ? 'Pause Feed' : 'Resume Feed';
+      btn.className = isStreamActive
+        ? 'px-3 py-1.5 text-xs font-semibold rounded-lg border border-slate-700 hover:border-slate-500 text-slate-300 transition'
+        : 'px-3 py-1.5 text-xs font-semibold rounded-lg bg-rose-500/20 text-rose-300 border border-rose-500/30 transition';
+    }
+
+    function populateTradeSelect() {
+      const sel = document.getElementById('tradeSymbol');
+      sel.innerHTML = '';
+      const symbols = [...portfolioData.holdings, ...portfolioData.watchlist];
+      symbols.forEach(s => {
+        const opt = document.createElement('option');
+        opt.value = s.symbol;
+        opt.text = `${s.symbol} - ${s.name}`;
+        sel.appendChild(opt);
+      });
+      updateTradeEstimate();
+    }
+
+    function triggerQuickTrade(sym) {
+      openTradeModal();
+      document.getElementById('tradeSymbol').value = sym;
+      updateTradeEstimate();
+    }
+
+    function openTradeModal() {
+      populateTradeSelect();
+      document.getElementById('tradeModal').classList.remove('hidden');
+      document.getElementById('tradeAlertMsg').classList.add('hidden');
+    }
+
+    function closeTradeModal() {
+      document.getElementById('tradeModal').classList.add('hidden');
+    }
+
+    function setTradeType(type) {
+      activeTradeType = type;
+      const buyBtn = document.getElementById('trade-type-buy');
+      const sellBtn = document.getElementById('trade-type-sell');
+      if (type === 'BUY') {
+        buyBtn.className = 'py-1.5 font-bold rounded-lg bg-emerald-500 text-slate-950 shadow text-xs transition';
+        sellBtn.className = 'py-1.5 font-bold rounded-lg text-slate-400 hover:text-white text-xs transition';
+      } else {
+        sellBtn.className = 'py-1.5 font-bold rounded-lg bg-rose-500 text-white shadow text-xs transition';
+        buyBtn.className = 'py-1.5 font-bold rounded-lg text-slate-400 hover:text-white text-xs transition';
+      }
+    }
+
+    function getCurrentPriceFor(symbol) {
+      const foundHold = portfolioData.holdings.find(h => h.symbol === symbol);
+      if (foundHold) return foundHold.currentPrice;
+      const foundWatch = portfolioData.watchlist.find(w => w.symbol === symbol);
+      if (foundWatch) return foundWatch.price;
+      return 150.00;
+    }
+
+    function updateTradeEstimate() {
+      const sym = document.getElementById('tradeSymbol').value;
+      const qty = parseFloat(document.getElementById('tradeQty').value) || 0;
+      const price = getCurrentPriceFor(sym);
+      const total = qty * price;
+
+      document.getElementById('tradeEstimatePrice').innerText = formatCurrency(price);
+      document.getElementById('tradeTotalAmount').innerText = formatCurrency(total);
+    }
+
+    function submitTradeOrder() {
+      const sym = document.getElementById('tradeSymbol').value;
+      const qty = parseFloat(document.getElementById('tradeQty').value) || 0;
+      const price = getCurrentPriceFor(sym);
+      const cost = qty * price;
+      const alertBox = document.getElementById('tradeAlertMsg');
+
+      if (qty <= 0) {
+        alertBox.className = "p-2.5 rounded-lg text-xs font-medium bg-rose-500/20 text-rose-300 border border-rose-500/30";
+        alertBox.innerText = "Please specify a valid quantity.";
+        alertBox.classList.remove('hidden');
+        return;
+      }
+
+      if (activeTradeType === 'BUY') {
+        if (cost > portfolioData.cash) {
+          alertBox.className = "p-2.5 rounded-lg text-xs font-medium bg-rose-500/20 text-rose-300 border border-rose-500/30";
+          alertBox.innerText = `Insufficient funds ($${portfolioData.cash.toLocaleString()}). Deposit cash first.`;
+          alertBox.classList.remove('hidden');
+          return;
+        }
+
+        portfolioData.cash -= cost;
+        let existing = portfolioData.holdings.find(h => h.symbol === sym);
+        if (existing) {
+          existing.shares += qty;
+        } else {
+          portfolioData.holdings.push({
+            symbol: sym,
+            name: `${sym} Holding`,
+            shares: qty,
+            currentPrice: price,
+            avgCost: price,
+            color: '#34d399',
+            category: 'Equities'
+          });
+        }
+      } else {
+        let existing = portfolioData.holdings.find(h => h.symbol === sym);
+        if (!existing || existing.shares < qty) {
+          alertBox.className = "p-2.5 rounded-lg text-xs font-medium bg-rose-500/20 text-rose-300 border border-rose-500/30";
+          alertBox.innerText = `Insufficient shares: Available position is ${existing ? existing.shares : 0}.`;
+          alertBox.classList.remove('hidden');
+          return;
+        }
+        existing.shares -= qty;
+        portfolioData.cash += cost;
+        if (existing.shares <= 0) {
+          portfolioData.holdings = portfolioData.holdings.filter(h => h.symbol !== sym);
+        }
+      }
+
+      // Record to ledger
+      const auditList = document.getElementById('transactionAuditList');
+      const newAudit = document.createElement('div');
+      newAudit.className = "p-2.5 rounded-xl bg-slate-950/60 border border-slate-800/60 flex items-center justify-between text-xs";
+      newAudit.innerHTML = `
+        <div class="flex items-center gap-2">
+          <span class="px-1.5 py-0.5 rounded ${activeTradeType === 'BUY' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-rose-500/20 text-rose-400'} text-[10px] font-bold">${activeTradeType}</span>
+          <span class="text-white font-semibold">${sym}</span>
+          <span class="text-slate-400">${qty} @ ${formatCurrency(price)}</span>
+        </div>
+        <span class="text-slate-500 font-mono text-[11px]">Just now</span>
+      `;
+      auditList.prepend(newAudit);
+
+      renderHoldingsTable();
+      initAllocationChart();
+      updateHeaderValues();
+
+      alertBox.className = "p-2.5 rounded-lg text-xs font-medium bg-emerald-500/20 text-emerald-300 border border-emerald-500/30";
+      alertBox.innerText = `Executed ${activeTradeType} for ${qty} ${sym} successfully.`;
+      alertBox.classList.remove('hidden');
+
+      setTimeout(() => {
+        closeTradeModal();
+      }, 1000);
+    }
+
+    function openDepositModal() {
+      document.getElementById('depositModal').classList.remove('hidden');
+    }
+    function closeDepositModal() {
+      document.getElementById('depositModal').classList.add('hidden');
+    }
+    function quickDepositVal(amt) {
+      document.getElementById('depositAmount').value = amt;
+    }
+    function executeDeposit() {
+      const amt = parseFloat(document.getElementById('depositAmount').value) || 0;
+      if (amt > 0) {
+        portfolioData.cash += amt;
+        updateHeaderValues();
+        closeDepositModal();
+      }
+    }
+
+    function runSplashSequence() {
+      const splash = document.getElementById('splashScreen');
+      const appRoot = document.getElementById('appRoot');
+      const progress = document.getElementById('splashProgress');
+
+      requestAnimationFrame(() => {
+        progress.style.transition = 'width 1.5s cubic-bezier(0.2, 0.7, 0.3, 1)';
+        progress.style.width = '100%';
+      });
+
+      setTimeout(() => {
+        splash.classList.add('splash-hide');
+        appRoot.classList.add('app-show');
+        setTimeout(() => {
+          if (splash && splash.parentNode) splash.parentNode.removeChild(splash);
+        }, 600);
+      }, 1750);
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      renderHoldingsTable();
+      renderWatchlist();
+      initPortfolioChart();
+      initAllocationChart();
+      startRealTimeTicker();
+      updateHeaderValues();
+      runSplashSequence();
+    });
+  </script>
+</body>
+</html>

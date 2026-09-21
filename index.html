@@ -1,0 +1,1458 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#050811">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Stock Monitor">
+  <title>Stock Monitor | Real-Time Institutional Terminal</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <link rel="icon" type="image/png" href="icons/icon-192.png">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace'],
+          },
+          colors: {
+            emerald: {
+              400: '#34d399',
+              500: '#10b981',
+              600: '#059669',
+            },
+            rose: {
+              400: '#fb7185',
+              500: '#f43f5e',
+            },
+            slate: {
+              850: '#0f172a',
+              900: '#0a0f1d',
+              950: '#050811',
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    :root {
+      box-sizing: border-box;
+    }
+    html {
+      scroll-padding-top: env(safe-area-inset-top, 0px);
+    }
+    html, body { -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
+    body {
+      background-color: #050811;
+      padding-bottom: env(safe-area-inset-bottom, 0px);
+      overscroll-behavior-y: none;
+    }
+
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: rgba(148, 163, 184, 0.2);
+      border-radius: 9999px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: rgba(148, 163, 184, 0.4);
+    }
+
+    @keyframes pulse-green {
+      0%, 100% { background-color: transparent; }
+      50% { background-color: rgba(16, 185, 129, 0.18); }
+    }
+    @keyframes pulse-red {
+      0%, 100% { background-color: transparent; }
+      50% { background-color: rgba(244, 63, 94, 0.18); }
+    }
+    .flash-up {
+      animation: pulse-green 0.75s ease;
+    }
+    .flash-down {
+      animation: pulse-red 0.75s ease;
+    }
+
+    /* ---------- App shell / sticky nav safe area ---------- */
+    #mainNav {
+      top: env(safe-area-inset-top, 0px);
+    }
+
+    /* ---------- Splash screen ---------- */
+    #splashScreen {
+      position: fixed;
+      inset: 0;
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #050811;
+      overflow: hidden;
+      padding-top: env(safe-area-inset-top, 0px);
+      padding-bottom: env(safe-area-inset-bottom, 0px);
+    }
+    #splashScreen::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(circle at 50% 38%, rgba(16,185,129,0.22), transparent 60%);
+    }
+    #splashScreen::after {
+      content: "";
+      position: absolute;
+      width: 140%;
+      height: 140%;
+      background:
+        linear-gradient(rgba(148,163,184,0.05) 1px, transparent 1px) 0 0 / 34px 34px,
+        linear-gradient(90deg, rgba(148,163,184,0.05) 1px, transparent 1px) 0 0 / 34px 34px;
+      transform: rotate(-4deg);
+      opacity: 0.5;
+    }
+    .splash-logo-box {
+      opacity: 0;
+      animation: logo-pop 0.55s cubic-bezier(0.34,1.56,0.64,1) 0.05s forwards;
+    }
+    #splashPath {
+      stroke-dasharray: 90;
+      stroke-dashoffset: 90;
+      animation: draw-line 1.05s ease-out 0.25s forwards;
+    }
+    #splashDot {
+      opacity: 0;
+      animation: dot-pop 0.35s ease-out 1.2s forwards;
+    }
+    .splash-text {
+      opacity: 0;
+      transform: translateY(10px);
+      animation: fade-up 0.6s ease-out 0.55s forwards;
+    }
+    .splash-bar-track {
+      opacity: 0;
+      animation: fade-up 0.6s ease-out 0.75s forwards;
+    }
+    @keyframes draw-line {
+      to { stroke-dashoffset: 0; }
+    }
+    @keyframes dot-pop {
+      from { opacity: 0; transform: scale(0); }
+      to { opacity: 1; transform: scale(1); }
+    }
+    @keyframes logo-pop {
+      from { opacity: 0; transform: scale(0.55) rotate(-10deg); }
+      to { opacity: 1; transform: scale(1) rotate(0deg); }
+    }
+    @keyframes fade-up {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    #splashScreen.splash-hide {
+      animation: splash-fade-out 0.55s ease forwards;
+      pointer-events: none;
+    }
+    @keyframes splash-fade-out {
+      to { opacity: 0; transform: scale(1.04); }
+    }
+    #appRoot {
+      opacity: 0;
+    }
+    #appRoot.app-show {
+      animation: app-fade-in 0.7s ease forwards;
+    }
+    @keyframes app-fade-in {
+      to { opacity: 1; }
+    }
+  </style>
+</head>
+
+<body class="bg-slate-950 text-slate-100 font-sans min-h-screen selection:bg-emerald-500 selection:text-black">
+
+  <!-- ============= SPLASH / LAUNCH SCREEN ============= -->
+  <div id="splashScreen">
+    <div class="relative flex flex-col items-center gap-5 px-6">
+      <div class="w-24 h-24 rounded-3xl bg-gradient-to-tr from-emerald-500 via-teal-400 to-cyan-500 flex items-center justify-center shadow-2xl shadow-emerald-500/30 splash-logo-box">
+        <svg class="w-14 h-14" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path id="splashPath" d="M4 34 L14 25 L20 29 L29 15 L44 5" stroke="#050811" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/>
+          <circle id="splashDot" cx="44" cy="5" r="3.5" fill="#050811"/>
+        </svg>
+      </div>
+      <div class="text-center splash-text">
+        <div class="font-extrabold text-2xl sm:text-3xl tracking-tight text-white">STOCK MONITOR</div>
+        <div class="text-[10px] uppercase tracking-[0.35em] font-mono text-emerald-400 mt-1.5">Institutional Direct Feed</div>
+      </div>
+      <div class="w-40 h-1 rounded-full bg-slate-800 overflow-hidden mt-1 splash-bar-track">
+        <div id="splashProgress" class="h-full bg-gradient-to-r from-emerald-500 to-cyan-400 rounded-full" style="width:0%"></div>
+      </div>
+      <div class="text-[10px] font-mono text-slate-500 tracking-wider splash-bar-track">Connecting to SIP feed…</div>
+    </div>
+  </div>
+
+  <!-- ============= APP ROOT ============= -->
+  <div id="appRoot">
+
+  <!-- Main Navigation Bar -->
+  <nav id="mainNav" class="border-b border-slate-800/80 bg-slate-900/80 backdrop-blur-xl sticky z-40 px-4 sm:px-8 py-3 flex items-center justify-between">
+    <div class="flex items-center gap-6">
+      <!-- App Identity -->
+      <div class="flex items-center gap-3">
+        <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-emerald-500 via-teal-400 to-cyan-500 flex items-center justify-center shadow-lg shadow-emerald-500/20">
+          <svg class="w-5 h-5 text-slate-950" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M4 34 L14 25 L20 29 L29 15 L44 5" stroke="currentColor" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/>
+            <circle cx="44" cy="5" r="3.5" fill="currentColor"/>
+          </svg>
+        </div>
+        <div>
+          <span class="font-extrabold text-base tracking-tight bg-gradient-to-r from-white via-slate-200 to-slate-400 bg-clip-text text-transparent">STOCK MONITOR</span>
+          <span class="text-[9px] uppercase tracking-widest font-mono text-emerald-400 block leading-none mt-0.5">INSTITUTIONAL DIRECT FEED</span>
+        </div>
+      </div>
+
+      <!-- Primary Nav Items -->
+      <div class="hidden lg:flex items-center space-x-1 text-xs text-slate-400 font-medium">
+        <button class="px-3 py-1.5 rounded-lg text-white bg-slate-800/90 shadow-inner font-semibold">Portfolio Overview</button>
+        <button onclick="openMarketsModal()" class="px-3 py-1.5 rounded-lg hover:text-white transition">Equities & ETFs</button>
+        <button class="px-3 py-1.5 rounded-lg hover:text-white transition">Options Flow</button>
+        <button class="px-3 py-1.5 rounded-lg hover:text-white transition">Direct Routing</button>
+      </div>
+    </div>
+
+    <!-- Right Header Actions & User Profile -->
+    <div class="flex items-center gap-3 sm:gap-4">
+      <!-- Exchange Feed Status Indicator -->
+      <div class="hidden sm:flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-slate-900 border border-slate-800 text-[11px] font-mono">
+        <span class="relative flex h-2 w-2">
+          <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+          <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+        </span>
+        <span class="text-slate-300">SIP FEED: 0.12ms</span>
+      </div>
+
+      <!-- Markets Browse Button -->
+      <button onclick="openMarketsModal()" class="px-3 py-1.5 text-xs font-semibold rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 active:scale-95 transition-all flex items-center gap-1.5">
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l4 4 4-8 4 4M3 19h18"></path>
+        </svg>
+        <span class="hidden sm:inline">Markets</span>
+      </button>
+
+      <!-- Quick Trade Button -->
+      <button onclick="openTradeModal()" class="px-3.5 py-1.5 text-xs font-semibold rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 shadow-lg shadow-emerald-500/20 active:scale-95 transition-all flex items-center gap-1.5">
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"></path>
+        </svg>
+        <span class="hidden sm:inline">Execute Order</span>
+      </button>
+
+      <!-- User Profile Pill -->
+      <div class="flex items-center gap-2.5 pl-2 border-l border-slate-800">
+        <div class="w-8 h-8 rounded-full bg-gradient-to-br from-slate-700 to-slate-900 border border-emerald-500/40 flex items-center justify-center font-bold text-xs text-emerald-400 font-mono shadow-sm">
+          PT
+        </div>
+        <div class="hidden md:block text-left leading-tight">
+          <div class="text-xs font-semibold text-white">Prithvi Thakre</div>
+          <div class="text-[10px] font-mono text-slate-400">ACCT #PM-882109</div>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+
+    <!-- Hero Balance & Asset Overview Card -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <!-- Main Portfolio Value Card -->
+      <div class="lg:col-span-2 bg-gradient-to-br from-slate-900/90 via-slate-900/60 to-slate-950 border border-slate-800/80 rounded-2xl p-6 sm:p-7 backdrop-blur-md relative overflow-hidden shadow-2xl">
+        <div class="absolute -right-20 -top-20 w-72 h-72 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none"></div>
+        <div class="absolute -left-20 -bottom-20 w-64 h-64 bg-cyan-500/10 rounded-full blur-3xl pointer-events-none"></div>
+
+        <div class="relative z-10 flex flex-col md:flex-row md:items-end justify-between gap-6">
+          <div>
+            <div class="flex items-center gap-2 mb-1.5">
+              <span class="text-xs uppercase tracking-wider font-mono text-slate-400">Account Net Liquidation Value</span>
+              <span class="bg-emerald-500/10 text-emerald-400 text-[10px] font-semibold px-2 py-0.5 rounded border border-emerald-500/20">Active Session</span>
+            </div>
+
+            <div class="flex items-baseline gap-2">
+              <h1 id="total-portfolio-value" class="text-4xl sm:text-5xl font-extrabold tracking-tight text-white font-mono">
+                $890,567.42
+              </h1>
+            </div>
+
+            <div class="flex flex-wrap items-center gap-3 mt-3">
+              <span id="day-gain-badge" class="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs sm:text-sm font-semibold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 font-mono">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 10l7-7m0 0l7 7m-7-7v18"></path>
+                </svg>
+                +$14,320.18 (+1.63%) Today
+              </span>
+              <span class="text-xs text-slate-400">Unrealized Total: <strong class="text-emerald-400 font-mono">+$248,790.00 (+38.7%)</strong></span>
+            </div>
+          </div>
+
+          <!-- Timeframe selector -->
+          <div class="flex items-center bg-slate-950/80 p-1 rounded-xl border border-slate-800/80 gap-1 self-start md:self-end">
+            <button onclick="setTimeframe('1D')" id="tf-1D" class="tf-btn px-2.5 py-1 text-xs font-semibold rounded-lg bg-emerald-500 text-slate-950 shadow">1D</button>
+            <button onclick="setTimeframe('1W')" id="tf-1W" class="tf-btn px-2.5 py-1 text-xs font-semibold rounded-lg text-slate-400 hover:text-white transition">1W</button>
+            <button onclick="setTimeframe('1M')" id="tf-1M" class="tf-btn px-2.5 py-1 text-xs font-semibold rounded-lg text-slate-400 hover:text-white transition">1M</button>
+            <button onclick="setTimeframe('1Y')" id="tf-1Y" class="tf-btn px-2.5 py-1 text-xs font-semibold rounded-lg text-slate-400 hover:text-white transition">1Y</button>
+            <button onclick="setTimeframe('ALL')" id="tf-ALL" class="tf-btn px-2.5 py-1 text-xs font-semibold rounded-lg text-slate-400 hover:text-white transition">ALL</button>
+          </div>
+        </div>
+
+        <!-- Interactive Chart -->
+        <div class="mt-6 h-60 sm:h-64 w-full relative">
+          <canvas id="portfolioChart"></canvas>
+        </div>
+      </div>
+
+      <!-- Quick Capital & Allocation Metrics -->
+      <div class="flex flex-col gap-6">
+        <!-- Asset Allocation Card -->
+        <div class="bg-slate-900/80 border border-slate-800/80 rounded-2xl p-5 backdrop-blur-md flex flex-col justify-between">
+          <div class="flex items-center justify-between mb-2">
+            <h3 class="text-sm font-semibold text-slate-200">Portfolio Breakdown</h3>
+            <span class="text-xs text-slate-400 font-mono">8 Core Positions</span>
+          </div>
+
+          <div class="h-40 relative flex items-center justify-center">
+            <canvas id="allocationChart"></canvas>
+          </div>
+
+          <div class="grid grid-cols-2 gap-2 mt-2 pt-3 border-t border-slate-800 text-xs font-mono">
+            <div class="flex items-center gap-2">
+              <span class="w-2.5 h-2.5 rounded-full bg-emerald-400"></span>
+              <span class="text-slate-300">Mega Tech: 52%</span>
+            </div>
+            <div class="flex items-center gap-2">
+              <span class="w-2.5 h-2.5 rounded-full bg-cyan-400"></span>
+              <span class="text-slate-300">Semis / AI: 24%</span>
+            </div>
+            <div class="flex items-center gap-2">
+              <span class="w-2.5 h-2.5 rounded-full bg-violet-400"></span>
+              <span class="text-slate-300">ETFs: 16%</span>
+            </div>
+            <div class="flex items-center gap-2">
+              <span class="w-2.5 h-2.5 rounded-full bg-amber-400"></span>
+              <span class="text-slate-300">Digital Assets: 8%</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Available Buying Power -->
+        <div class="bg-slate-900/80 border border-slate-800/80 rounded-2xl p-5 backdrop-blur-md">
+          <div class="flex justify-between items-center text-xs text-slate-400 mb-1">
+            <span>Settled Cash / Buying Power</span>
+            <span class="text-emerald-400 font-mono font-medium">Earns 4.85% APY</span>
+          </div>
+          <div id="buying-power-display" class="text-2xl font-bold font-mono text-white">$42,390.15</div>
+          <div class="flex gap-2 mt-3">
+            <button onclick="openDepositModal()" class="flex-1 py-1.5 text-xs font-semibold rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 transition">Deposit Funds</button>
+            <button onclick="toggleLiveTicks()" id="toggle-stream-btn" class="px-3 py-1.5 text-xs font-semibold rounded-lg border border-slate-700 hover:border-slate-500 text-slate-300 transition">Pause Feed</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Active Holdings Table -->
+    <div class="bg-slate-900/70 border border-slate-800/80 rounded-2xl overflow-hidden backdrop-blur-md shadow-xl">
+      <div class="p-5 border-b border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h2 class="text-base sm:text-lg font-bold text-white tracking-tight">Active Holdings</h2>
+          <p class="text-xs text-slate-400 mt-0.5">Real-time consolidated positions across primary custodians</p>
+        </div>
+
+        <div class="flex items-center gap-2.5">
+          <div class="relative">
+            <svg class="w-4 h-4 text-slate-400 absolute left-3 top-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+            </svg>
+            <input type="text" id="tableSearch" onkeyup="filterHoldings()" placeholder="Filter symbols, assets..." class="bg-slate-950/80 border border-slate-800 text-xs rounded-xl pl-9 pr-3 py-2 text-slate-200 focus:outline-none focus:border-emerald-500 w-48 sm:w-60 transition">
+          </div>
+        </div>
+      </div>
+
+      <div class="overflow-x-auto">
+        <table class="w-full text-left text-sm" id="holdingsTable">
+          <thead class="bg-slate-950/60 text-slate-400 text-[10px] sm:text-[11px] uppercase tracking-wider font-mono border-b border-slate-800/80">
+            <tr>
+              <th class="py-3 px-4 sm:px-6">Asset / Ticker</th>
+              <th class="py-3 px-4">Market Price</th>
+              <th class="py-3 px-4">Position Qty</th>
+              <th class="py-3 px-4">Market Value</th>
+              <th class="py-3 px-4">Today's P&amp;L</th>
+              <th class="py-3 px-4">Total Return</th>
+              <th class="py-3 px-4 text-right">Action</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-800/60 font-mono text-xs" id="holdingsBody">
+            <!-- Dynamically populated -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Watchlist & Execution Terminal Ledger -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <!-- Direct Market Watchlist -->
+      <div class="bg-slate-900/70 border border-slate-800/80 rounded-2xl p-5 backdrop-blur-md">
+        <div class="flex items-center justify-between mb-4">
+          <div>
+            <h3 class="font-bold text-white text-base">Key Index & Market Watchlist</h3>
+            <p class="text-xs text-slate-400">Direct NBBO level 1 quotes</p>
+          </div>
+          <span class="text-xs font-mono px-2 py-0.5 rounded bg-slate-800 text-slate-300">4 Monitored</span>
+        </div>
+
+        <div class="space-y-3" id="watchlistContainer">
+          <!-- Populated dynamically -->
+        </div>
+      </div>
+
+      <!-- Execution Audit & FIX Routing Feed -->
+      <div class="bg-slate-900/70 border border-slate-800/80 rounded-2xl p-5 backdrop-blur-md flex flex-col justify-between">
+        <div>
+          <div class="flex items-center justify-between mb-2">
+            <h3 class="font-bold text-white text-base">Execution & Clearing Ledger</h3>
+            <span class="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">FIX Protocol 4.4</span>
+          </div>
+          <p class="text-xs text-slate-400 mb-4">DTC Cleared / Custody: Apex Clearing Corp</p>
+
+          <div class="space-y-2.5" id="transactionAuditList">
+            <div class="p-2.5 rounded-xl bg-slate-950/60 border border-slate-800/60 flex items-center justify-between text-xs">
+              <div class="flex items-center gap-2">
+                <span class="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 text-[10px] font-bold">BUY</span>
+                <span class="text-white font-semibold">NVDA</span>
+                <span class="text-slate-400">30 shares @ $128.40</span>
+              </div>
+              <span class="text-slate-500 font-mono text-[11px]">Today 14:12</span>
+            </div>
+
+            <div class="p-2.5 rounded-xl bg-slate-950/60 border border-slate-800/60 flex items-center justify-between text-xs">
+              <div class="flex items-center gap-2">
+                <span class="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 text-[10px] font-bold">DIVIDEND</span>
+                <span class="text-white font-semibold">VOO</span>
+                <span class="text-slate-400">Reinvested +$640.20</span>
+              </div>
+              <span class="text-slate-500 font-mono text-[11px]">Yesterday</span>
+            </div>
+
+            <div class="p-2.5 rounded-xl bg-slate-950/60 border border-slate-800/60 flex items-center justify-between text-xs">
+              <div class="flex items-center gap-2">
+                <span class="px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-400 text-[10px] font-bold">SELL</span>
+                <span class="text-white font-semibold">TSLA</span>
+                <span class="text-slate-400">15 shares @ $248.80</span>
+              </div>
+              <span class="text-slate-500 font-mono text-[11px]">Sep 18</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="mt-4 pt-3 border-t border-slate-800 text-xs flex items-center justify-between text-slate-400">
+          <span>Brokerage Protection: <strong>SIPC Insured to $500k</strong></span>
+          <span class="text-emerald-400 flex items-center gap-1 font-mono text-[11px]">
+            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span> Synced
+          </span>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- Trade Order Execution Modal -->
+  <div id="tradeModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm hidden">
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-md p-6 m-4 shadow-2xl relative">
+      <button onclick="closeTradeModal()" class="absolute right-4 top-4 text-slate-400 hover:text-white transition">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+        </svg>
+      </button>
+
+      <h3 class="text-lg font-bold text-white mb-1">Stock Monitor | Order Ticket</h3>
+      <p class="text-xs text-slate-400 mb-4">Direct market access execution routing</p>
+
+      <div class="space-y-4 text-sm font-sans">
+        <div class="grid grid-cols-2 gap-2 bg-slate-950 p-1 rounded-xl border border-slate-800">
+          <button id="trade-type-buy" onclick="setTradeType('BUY')" class="py-1.5 font-bold rounded-lg bg-emerald-500 text-slate-950 shadow text-xs transition">BUY</button>
+          <button id="trade-type-sell" onclick="setTradeType('SELL')" class="py-1.5 font-bold rounded-lg text-slate-400 hover:text-white text-xs transition">SELL</button>
+        </div>
+
+        <div>
+          <label class="text-xs text-slate-400 font-medium mb-1 block">Selected Asset</label>
+          <select id="tradeSymbol" onchange="updateTradeEstimate()" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white font-mono text-sm focus:border-emerald-500 outline-none">
+            <!-- options populated via JS -->
+          </select>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="text-xs text-slate-400 font-medium mb-1 block">Order Type</label>
+            <select class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white text-sm focus:border-emerald-500 outline-none">
+              <option>Market (Day)</option>
+              <option>Limit (GTC)</option>
+              <option>Stop Loss</option>
+            </select>
+          </div>
+          <div>
+            <label class="text-xs text-slate-400 font-medium mb-1 block">Shares / Qty</label>
+            <input type="number" id="tradeQty" value="10" min="1" max="5000" oninput="updateTradeEstimate()" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white font-mono text-sm focus:border-emerald-500 outline-none">
+          </div>
+        </div>
+
+        <div class="bg-slate-950 p-3.5 rounded-xl border border-slate-800 text-xs font-mono space-y-1.5">
+          <div class="flex justify-between text-slate-400">
+            <span>Market Quote:</span>
+            <span id="tradeEstimatePrice" class="text-white">$0.00</span>
+          </div>
+          <div class="flex justify-between text-slate-400">
+            <span>Routing Fee:</span>
+            <span class="text-emerald-400">$0.00 (Direct Route)</span>
+          </div>
+          <div class="border-t border-slate-800 pt-1.5 flex justify-between font-bold">
+            <span class="text-slate-300">Total Settlement Value:</span>
+            <span id="tradeTotalAmount" class="text-white text-sm">$0.00</span>
+          </div>
+        </div>
+
+        <div id="tradeAlertMsg" class="hidden p-2.5 rounded-lg text-xs font-medium"></div>
+
+        <button onclick="submitTradeOrder()" class="w-full py-3 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 font-bold text-slate-950 transition active:scale-[0.98] shadow-lg shadow-emerald-500/25">
+          Transmit Order to Exchange
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Markets Browse Modal (real, tradeable stock universe) -->
+  <div id="marketsModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm hidden p-0 sm:p-4">
+    <div class="bg-slate-900 border border-slate-800 sm:rounded-2xl w-full sm:max-w-lg h-full sm:h-[85vh] shadow-2xl relative flex flex-col">
+      <div class="p-5 pb-3 border-b border-slate-800 flex items-start justify-between gap-3">
+        <div>
+          <h3 class="text-lg font-bold text-white">Equities &amp; ETFs</h3>
+          <p class="text-xs text-slate-400 mt-0.5">Browse real listed tickers &amp; place a paper trade</p>
+        </div>
+        <button onclick="closeMarketsModal()" class="text-slate-400 hover:text-white transition shrink-0">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+          </svg>
+        </button>
+      </div>
+
+      <div class="px-5 pt-3 pb-2 space-y-2.5 border-b border-slate-800">
+        <div class="relative">
+          <svg class="w-4 h-4 text-slate-400 absolute left-3 top-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+          </svg>
+          <input type="text" id="marketSearch" oninput="filterMarketList()" placeholder="Search ticker or company name..." class="w-full bg-slate-950/80 border border-slate-800 text-sm rounded-xl pl-9 pr-3 py-2 text-slate-200 focus:outline-none focus:border-emerald-500 transition">
+        </div>
+        <div id="marketSectorChips" class="flex items-center gap-1.5 overflow-x-auto pb-1 -mx-1 px-1"></div>
+      </div>
+
+      <div class="flex-1 overflow-y-auto px-5 py-3 space-y-2" id="marketListContainer">
+        <!-- Populated dynamically -->
+      </div>
+
+      <div class="px-5 py-3 border-t border-slate-800 text-[11px] text-slate-500 leading-snug">
+        Paper trading only — real company tickers, simulated pricing. No real money or brokerage account involved.
+      </div>
+    </div>
+  </div>
+
+  <!-- Deposit Capital Modal -->
+  <div id="depositModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm hidden">
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-sm p-6 m-4 shadow-2xl relative">
+      <button onclick="closeDepositModal()" class="absolute right-4 top-4 text-slate-400 hover:text-white transition">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+        </svg>
+      </button>
+
+      <h3 class="text-lg font-bold text-white mb-1">Wire & ACH Deposit</h3>
+      <p class="text-xs text-slate-400 mb-4">Transfer funds to account #PM-882109</p>
+
+      <div class="space-y-3">
+        <div>
+          <label class="text-xs text-slate-400 font-medium mb-1 block">Deposit Amount ($)</label>
+          <input type="number" id="depositAmount" value="5000" step="1000" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white font-mono text-sm focus:border-emerald-500 outline-none">
+        </div>
+
+        <div class="flex gap-2">
+          <button onclick="quickDepositVal(1000)" class="flex-1 py-1 text-xs bg-slate-800 text-slate-300 rounded-lg hover:bg-slate-700">+$1k</button>
+          <button onclick="quickDepositVal(5000)" class="flex-1 py-1 text-xs bg-slate-800 text-slate-300 rounded-lg hover:bg-slate-700">+$5k</button>
+          <button onclick="quickDepositVal(25000)" class="flex-1 py-1 text-xs bg-slate-800 text-slate-300 rounded-lg hover:bg-slate-700">+$25k</button>
+        </div>
+
+        <button onclick="executeDeposit()" class="w-full mt-2 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 font-bold text-slate-950 text-sm transition shadow-lg shadow-emerald-500/20">
+          Complete Transfer
+        </button>
+      </div>
+    </div>
+  </div>
+
+  </div> <!-- /#appRoot -->
+
+  <script>
+    // Initial State
+    let portfolioData = {
+      cash: 42390.15,
+      holdings: [
+        { symbol: "NVDA", name: "NVIDIA Corp", shares: 1450, currentPrice: 134.80, avgCost: 82.50, color: "#10b981", category: "Semis / AI" },
+        { symbol: "AAPL", name: "Apple Inc.", shares: 1020, currentPrice: 232.40, avgCost: 178.20, color: "#06b6d4", category: "Mega Tech" },
+        { symbol: "MSFT", name: "Microsoft Corp", shares: 420, currentPrice: 448.15, avgCost: 380.00, color: "#3b82f6", category: "Mega Tech" },
+        { symbol: "AMZN", name: "Amazon.com Inc", shares: 510, currentPrice: 189.65, avgCost: 142.10, color: "#8b5cf6", category: "Mega Tech" },
+        { symbol: "GOOGL", name: "Alphabet Inc Class A", shares: 480, currentPrice: 165.25, avgCost: 135.00, color: "#ec4899", category: "Mega Tech" },
+        { symbol: "TSLA", name: "Tesla Inc", shares: 320, currentPrice: 254.90, avgCost: 210.40, color: "#f43f5e", category: "Semis / AI" },
+        { symbol: "VOO", name: "Vanguard S&P 500 ETF", shares: 250, currentPrice: 512.40, avgCost: 440.00, color: "#6366f1", category: "ETFs & Indices" },
+        { symbol: "BTC", name: "Bitcoin Spot Trust", shares: 1.15, currentPrice: 62450.00, avgCost: 45000.00, color: "#f59e0b", category: "Crypto / BTC" }
+      ],
+      watchlist: [
+        { symbol: "AMD", name: "Advanced Micro Devices", price: 156.40, change: 2.84, pct: 1.85 },
+        { symbol: "META", name: "Meta Platforms", price: 542.20, change: -4.10, pct: -0.75 },
+        { symbol: "PLTR", name: "Palantir Technologies", price: 37.15, change: 1.45, pct: 4.06 },
+        { symbol: "ETH", name: "Ethereum Spot", price: 2480.00, change: 65.50, pct: 2.71 }
+      ]
+    };
+
+    // ---------------------------------------------------------------------
+    // Real, tradeable stock universe (real listed companies & funds).
+    // Prices are realistic starting points for the paper-trading simulator —
+    // this app has no live market data feed, so prices move via the same
+    // simulated ticker used for the rest of the app, not real quotes.
+    // ---------------------------------------------------------------------
+    const MARKET_UNIVERSE = [
+      // Technology
+      { symbol: "INTC", name: "Intel Corp", sector: "Technology", price: 24.50 },
+      { symbol: "CSCO", name: "Cisco Systems Inc", sector: "Technology", price: 58.30 },
+      { symbol: "ORCL", name: "Oracle Corp", sector: "Technology", price: 195.00 },
+      { symbol: "IBM", name: "International Business Machines", sector: "Technology", price: 235.00 },
+      { symbol: "ADBE", name: "Adobe Inc", sector: "Technology", price: 480.00 },
+      { symbol: "CRM", name: "Salesforce Inc", sector: "Technology", price: 320.00 },
+      { symbol: "QCOM", name: "Qualcomm Inc", sector: "Technology", price: 175.00 },
+      { symbol: "TXN", name: "Texas Instruments Inc", sector: "Technology", price: 205.00 },
+      { symbol: "AVGO", name: "Broadcom Inc", sector: "Technology", price: 185.00 },
+      { symbol: "NOW", name: "ServiceNow Inc", sector: "Technology", price: 1050.00 },
+      { symbol: "INTU", name: "Intuit Inc", sector: "Technology", price: 680.00 },
+      { symbol: "CRWD", name: "CrowdStrike Holdings", sector: "Technology", price: 380.00 },
+      { symbol: "PANW", name: "Palo Alto Networks", sector: "Technology", price: 200.00 },
+      { symbol: "SNOW", name: "Snowflake Inc", sector: "Technology", price: 165.00 },
+      { symbol: "SHOP", name: "Shopify Inc", sector: "Technology", price: 95.00 },
+      { symbol: "ORAN", name: "Orange S.A. ADR", sector: "Technology", price: 13.20 },
+      { symbol: "DELL", name: "Dell Technologies", sector: "Technology", price: 120.00 },
+      { symbol: "HPQ", name: "HP Inc", sector: "Technology", price: 32.00 },
+      { symbol: "MU", name: "Micron Technology", sector: "Technology", price: 105.00 },
+      { symbol: "ARM", name: "Arm Holdings ADR", sector: "Technology", price: 145.00 },
+      // Consumer Tech / Internet
+      { symbol: "UBER", name: "Uber Technologies", sector: "Consumer", price: 72.00 },
+      { symbol: "ABNB", name: "Airbnb Inc", sector: "Consumer", price: 130.00 },
+      { symbol: "SPOT", name: "Spotify Technology", sector: "Communication", price: 480.00 },
+      { symbol: "NFLX", name: "Netflix Inc", sector: "Communication", price: 780.00 },
+      { symbol: "DIS", name: "Walt Disney Co", sector: "Communication", price: 112.00 },
+      { symbol: "SNAP", name: "Snap Inc", sector: "Communication", price: 11.50 },
+      { symbol: "PINS", name: "Pinterest Inc", sector: "Communication", price: 33.00 },
+      { symbol: "ZM", name: "Zoom Communications", sector: "Technology", price: 68.00 },
+      { symbol: "DOCU", name: "DocuSign Inc", sector: "Technology", price: 78.00 },
+      { symbol: "SQ", name: "Block Inc", sector: "Financials", price: 78.00 },
+      { symbol: "PYPL", name: "PayPal Holdings", sector: "Financials", price: 78.00 },
+      { symbol: "COIN", name: "Coinbase Global", sector: "Financials", price: 245.00 },
+      { symbol: "SOFI", name: "SoFi Technologies", sector: "Financials", price: 14.50 },
+      { symbol: "RIVN", name: "Rivian Automotive", sector: "Consumer", price: 13.50 },
+      { symbol: "LCID", name: "Lucid Group", sector: "Consumer", price: 3.20 },
+      { symbol: "BABA", name: "Alibaba Group ADR", sector: "Consumer", price: 95.00 },
+      { symbol: "F", name: "Ford Motor Co", sector: "Consumer", price: 11.20 },
+      { symbol: "GM", name: "General Motors Co", sector: "Consumer", price: 54.00 },
+      // Financials
+      { symbol: "JPM", name: "JPMorgan Chase & Co", sector: "Financials", price: 245.00 },
+      { symbol: "BAC", name: "Bank of America Corp", sector: "Financials", price: 44.00 },
+      { symbol: "WFC", name: "Wells Fargo & Co", sector: "Financials", price: 72.00 },
+      { symbol: "GS", name: "Goldman Sachs Group", sector: "Financials", price: 590.00 },
+      { symbol: "MS", name: "Morgan Stanley", sector: "Financials", price: 130.00 },
+      { symbol: "V", name: "Visa Inc", sector: "Financials", price: 315.00 },
+      { symbol: "MA", name: "Mastercard Inc", sector: "Financials", price: 530.00 },
+      { symbol: "BRK-B", name: "Berkshire Hathaway Cl B", sector: "Financials", price: 470.00 },
+      { symbol: "AXP", name: "American Express Co", sector: "Financials", price: 305.00 },
+      { symbol: "SCHW", name: "Charles Schwab Corp", sector: "Financials", price: 85.00 },
+      { symbol: "C", name: "Citigroup Inc", sector: "Financials", price: 78.00 },
+      // Healthcare
+      { symbol: "JNJ", name: "Johnson & Johnson", sector: "Healthcare", price: 160.00 },
+      { symbol: "PFE", name: "Pfizer Inc", sector: "Healthcare", price: 26.50 },
+      { symbol: "UNH", name: "UnitedHealth Group", sector: "Healthcare", price: 560.00 },
+      { symbol: "LLY", name: "Eli Lilly and Co", sector: "Healthcare", price: 850.00 },
+      { symbol: "ABBV", name: "AbbVie Inc", sector: "Healthcare", price: 185.00 },
+      { symbol: "MRK", name: "Merck & Co", sector: "Healthcare", price: 105.00 },
+      { symbol: "TMO", name: "Thermo Fisher Scientific", sector: "Healthcare", price: 560.00 },
+      { symbol: "ABT", name: "Abbott Laboratories", sector: "Healthcare", price: 115.00 },
+      { symbol: "BMY", name: "Bristol-Myers Squibb", sector: "Healthcare", price: 52.00 },
+      { symbol: "CVS", name: "CVS Health Corp", sector: "Healthcare", price: 68.00 },
+      // Consumer Staples / Retail
+      { symbol: "WMT", name: "Walmart Inc", sector: "Consumer", price: 92.00 },
+      { symbol: "COST", name: "Costco Wholesale Corp", sector: "Consumer", price: 920.00 },
+      { symbol: "HD", name: "Home Depot Inc", sector: "Consumer", price: 400.00 },
+      { symbol: "LOW", name: "Lowe's Companies", sector: "Consumer", price: 265.00 },
+      { symbol: "MCD", name: "McDonald's Corp", sector: "Consumer", price: 300.00 },
+      { symbol: "SBUX", name: "Starbucks Corp", sector: "Consumer", price: 95.00 },
+      { symbol: "KO", name: "Coca-Cola Co", sector: "Consumer", price: 68.00 },
+      { symbol: "PEP", name: "PepsiCo Inc", sector: "Consumer", price: 165.00 },
+      { symbol: "PG", name: "Procter & Gamble Co", sector: "Consumer", price: 168.00 },
+      { symbol: "NKE", name: "Nike Inc", sector: "Consumer", price: 78.00 },
+      { symbol: "TGT", name: "Target Corp", sector: "Consumer", price: 145.00 },
+      { symbol: "CMG", name: "Chipotle Mexican Grill", sector: "Consumer", price: 58.00 },
+      { symbol: "EL", name: "Estee Lauder Companies", sector: "Consumer", price: 68.00 },
+      // Energy
+      { symbol: "XOM", name: "Exxon Mobil Corp", sector: "Energy", price: 118.00 },
+      { symbol: "CVX", name: "Chevron Corp", sector: "Energy", price: 160.00 },
+      { symbol: "COP", name: "ConocoPhillips", sector: "Energy", price: 105.00 },
+      { symbol: "SLB", name: "Schlumberger NV", sector: "Energy", price: 45.00 },
+      // Industrials
+      { symbol: "BA", name: "Boeing Co", sector: "Industrials", price: 175.00 },
+      { symbol: "CAT", name: "Caterpillar Inc", sector: "Industrials", price: 390.00 },
+      { symbol: "GE", name: "General Electric Co", sector: "Industrials", price: 190.00 },
+      { symbol: "HON", name: "Honeywell International", sector: "Industrials", price: 210.00 },
+      { symbol: "UPS", name: "United Parcel Service", sector: "Industrials", price: 130.00 },
+      { symbol: "FDX", name: "FedEx Corp", sector: "Industrials", price: 280.00 },
+      { symbol: "LMT", name: "Lockheed Martin Corp", sector: "Industrials", price: 480.00 },
+      { symbol: "RTX", name: "RTX Corp", sector: "Industrials", price: 120.00 },
+      { symbol: "NOC", name: "Northrop Grumman Corp", sector: "Industrials", price: 490.00 },
+      { symbol: "DE", name: "Deere & Co", sector: "Industrials", price: 420.00 },
+      { symbol: "MMM", name: "3M Co", sector: "Industrials", price: 135.00 },
+      // Communication / Telecom
+      { symbol: "T", name: "AT&T Inc", sector: "Communication", price: 22.50 },
+      { symbol: "VZ", name: "Verizon Communications", sector: "Communication", price: 42.00 },
+      { symbol: "TMUS", name: "T-Mobile US Inc", sector: "Communication", price: 235.00 },
+      { symbol: "CMCSA", name: "Comcast Corp", sector: "Communication", price: 38.00 },
+      // ETFs & Funds
+      { symbol: "SPY", name: "SPDR S&P 500 ETF Trust", sector: "ETFs", price: 590.00 },
+      { symbol: "QQQ", name: "Invesco QQQ Trust", sector: "ETFs", price: 510.00 },
+      { symbol: "DIA", name: "SPDR Dow Jones Ind. ETF", sector: "ETFs", price: 430.00 },
+      { symbol: "IWM", name: "iShares Russell 2000 ETF", sector: "ETFs", price: 225.00 },
+      { symbol: "VTI", name: "Vanguard Total Stock Mkt ETF", sector: "ETFs", price: 285.00 },
+      { symbol: "ARKK", name: "ARK Innovation ETF", sector: "ETFs", price: 55.00 },
+      { symbol: "GLD", name: "SPDR Gold Shares", sector: "ETFs", price: 245.00 },
+      { symbol: "SLV", name: "iShares Silver Trust", sector: "ETFs", price: 28.00 },
+      { symbol: "TLT", name: "iShares 20+ Yr Treasury ETF", sector: "ETFs", price: 92.00 },
+      // Crypto
+      { symbol: "SOL", name: "Solana", sector: "Crypto", price: 195.00 },
+      { symbol: "XRP", name: "Ripple / XRP", sector: "Crypto", price: 2.40 },
+      { symbol: "DOGE", name: "Dogecoin", sector: "Crypto", price: 0.35 },
+      { symbol: "BNB", name: "Binance Coin", sector: "Crypto", price: 620.00 }
+    ];
+    const MARKET_SECTORS = ['All', ...Array.from(new Set(MARKET_UNIVERSE.map(m => m.sector)))];
+    // Small deterministic-ish daily change so the list looks alive; refreshed by the ticker below.
+    MARKET_UNIVERSE.forEach(m => { m.change = +(Math.random() * 6 - 2.7).toFixed(2); m.basePrice = m.price; });
+    let currentMarketSector = 'All';
+
+    // Persist portfolio between launches
+    const STORE_KEY = 'stockMonitor.portfolio.v1';
+    const MARKET_STORE_KEY = 'stockMonitor.marketPrices.v1';
+    try {
+      const saved = JSON.parse(localStorage.getItem(STORE_KEY) || 'null');
+      if (saved && Array.isArray(saved.holdings) && Array.isArray(saved.watchlist) && typeof saved.cash === 'number') portfolioData = saved;
+    } catch (e) {}
+    try {
+      const savedMarket = JSON.parse(localStorage.getItem(MARKET_STORE_KEY) || 'null');
+      if (savedMarket && typeof savedMarket === 'object') {
+        MARKET_UNIVERSE.forEach(m => { if (typeof savedMarket[m.symbol] === 'number') m.price = savedMarket[m.symbol]; });
+      }
+    } catch (e) {}
+    function saveState() {
+      try { localStorage.setItem(STORE_KEY, JSON.stringify(portfolioData)); } catch (e) {}
+      try {
+        const snap = {};
+        MARKET_UNIVERSE.forEach(m => { snap[m.symbol] = m.price; });
+        localStorage.setItem(MARKET_STORE_KEY, JSON.stringify(snap));
+      } catch (e) {}
+    }
+    window.addEventListener('pagehide', saveState);
+    document.addEventListener('visibilitychange', () => { if (document.hidden) saveState(); });
+
+    let currentTimeframe = '1D';
+    let isStreamActive = true;
+    let portfolioChartInstance = null;
+    let allocationChartInstance = null;
+    let activeTradeType = 'BUY';
+
+    const formatCurrency = (num) => {
+      return new Intl.NumberFormat('en-US', {
+        style: 'currency',
+        currency: 'USD',
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+      }).format(num);
+    };
+
+    const formatPct = (num) => {
+      const sign = num >= 0 ? '+' : '';
+      return `${sign}${num.toFixed(2)}%`;
+    };
+
+    function calculateTotalPortfolioValue() {
+      const totalHoldings = portfolioData.holdings.reduce((sum, h) => sum + (h.shares * h.currentPrice), 0);
+      return totalHoldings + portfolioData.cash;
+    }
+
+    function updateHeaderValues() {
+      saveState();
+      const total = calculateTotalPortfolioValue();
+      document.getElementById('total-portfolio-value').innerText = formatCurrency(total);
+      document.getElementById('buying-power-display').innerText = formatCurrency(portfolioData.cash);
+    }
+
+    function renderHoldingsTable() {
+      const tbody = document.getElementById('holdingsBody');
+      tbody.innerHTML = '';
+
+      portfolioData.holdings.forEach((item, index) => {
+        const totalVal = item.shares * item.currentPrice;
+        const totalInvested = item.shares * item.avgCost;
+        const totalProfit = totalVal - totalInvested;
+        const totalProfitPct = (totalProfit / totalInvested) * 100;
+
+        const todayGainPct = (Math.sin(index + Date.now() / 20000) * 1.5) + 1.1;
+        const todayGainVal = totalVal * (todayGainPct / 100);
+
+        const tr = document.createElement('tr');
+        tr.id = `row-${item.symbol}`;
+        tr.className = "hover:bg-slate-800/40 transition-colors border-b border-slate-800/60";
+
+        tr.innerHTML = `
+          <td class="py-3.5 px-4 sm:px-6">
+            <div class="flex items-center gap-3">
+              <div class="w-8 h-8 rounded-lg flex items-center justify-center font-bold text-xs" style="background: ${item.color}20; color: ${item.color}; border: 1px solid ${item.color}40;">
+                ${item.symbol.slice(0, 3)}
+              </div>
+              <div>
+                <div class="font-bold text-white text-sm">${item.symbol}</div>
+                <div class="text-[11px] text-slate-400 font-sans">${item.name}</div>
+              </div>
+            </div>
+          </td>
+          <td class="py-3.5 px-4 font-semibold text-slate-100" id="price-${item.symbol}">
+            ${formatCurrency(item.currentPrice)}
+          </td>
+          <td class="py-3.5 px-4 text-slate-300">
+            <div>${item.shares.toLocaleString()} ${item.symbol === 'BTC' ? 'BTC' : 'shares'}</div>
+            <div class="text-[10px] text-slate-500">Cost: ${formatCurrency(item.avgCost)}</div>
+          </td>
+          <td class="py-3.5 px-4 font-bold text-slate-100" id="val-${item.symbol}">
+            ${formatCurrency(totalVal)}
+          </td>
+          <td class="py-3.5 px-4">
+            <span class="${todayGainVal >= 0 ? 'text-emerald-400' : 'text-rose-400'} flex items-center gap-1 font-semibold">
+              ${todayGainVal >= 0 ? '+' : ''}${formatCurrency(todayGainVal)} (${formatPct(todayGainPct)})
+            </span>
+          </td>
+          <td class="py-3.5 px-4">
+            <span class="${totalProfit >= 0 ? 'text-emerald-400' : 'text-rose-400'} font-semibold">
+              ${formatPct(totalProfitPct)}
+            </span>
+            <div class="text-[10px] text-slate-500">${formatCurrency(totalProfit)}</div>
+          </td>
+          <td class="py-3.5 px-4 text-right">
+            <button onclick="triggerQuickTrade('${item.symbol}')" class="px-3 py-1 rounded-lg bg-slate-800 hover:bg-emerald-500 hover:text-slate-950 text-slate-300 text-xs font-semibold transition border border-slate-700">
+              Trade
+            </button>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    function filterHoldings() {
+      const q = document.getElementById('tableSearch').value.toLowerCase();
+      const rows = document.getElementById('holdingsBody').getElementsByTagName('tr');
+      for (let r of rows) {
+        const text = r.innerText.toLowerCase();
+        r.style.display = text.includes(q) ? '' : 'none';
+      }
+    }
+
+    function renderWatchlist() {
+      const container = document.getElementById('watchlistContainer');
+      container.innerHTML = '';
+
+      portfolioData.watchlist.forEach(w => {
+        const isUp = w.pct >= 0;
+        const div = document.createElement('div');
+        div.className = "flex items-center justify-between p-3 rounded-xl bg-slate-950/60 border border-slate-800/80 hover:border-slate-700 transition";
+        div.innerHTML = `
+          <div class="flex items-center gap-3">
+            <div class="font-mono font-bold text-white text-sm">${w.symbol}</div>
+            <div class="text-xs text-slate-400 hidden sm:inline">${w.name}</div>
+          </div>
+          <div class="flex items-center gap-4 font-mono text-xs">
+            <span class="text-slate-200 font-semibold">${formatCurrency(w.price)}</span>
+            <span class="px-2 py-0.5 rounded ${isUp ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-rose-500/10 text-rose-400 border border-rose-500/20'}">
+              ${isUp ? '+' : ''}${w.pct}%
+            </span>
+            <button onclick="triggerQuickTrade('${w.symbol}')" class="text-slate-400 hover:text-emerald-400 text-xs transition">
+              +
+            </button>
+          </div>
+        `;
+        container.appendChild(div);
+      });
+    }
+
+    function generateTimeframeData(tf) {
+      let labels = [];
+      let data = [];
+      const currentNetWorth = calculateTotalPortfolioValue();
+
+      if (tf === '1D') {
+        const times = ["9:30 AM", "10:15 AM", "11:00 AM", "11:45 AM", "12:30 PM", "1:15 PM", "2:00 PM", "2:45 PM", "3:30 PM", "4:00 PM"];
+        labels = times;
+        let walk = currentNetWorth - 14320.18;
+        for (let i = 0; i < times.length; i++) {
+          const progress = i / (times.length - 1);
+          walk += (Math.random() * 2100 - 800) + (progress * 700);
+          data.push(Math.round(walk));
+        }
+        data[data.length - 1] = Math.round(currentNetWorth);
+      } else if (tf === '1W') {
+        labels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
+        data = [868000, 874500, 871200, 882000, Math.round(currentNetWorth)];
+      } else if (tf === '1M') {
+        labels = ['Week 1', 'Week 2', 'Week 3', 'Week 4', 'Present'];
+        data = [835000, 848000, 862000, 878000, Math.round(currentNetWorth)];
+      } else if (tf === '1Y') {
+        labels = ['Oct', 'Dec', 'Feb', 'Apr', 'Jun', 'Aug', 'Sep'];
+        data = [650000, 685000, 720000, 765000, 810000, 855000, Math.round(currentNetWorth)];
+      } else if (tf === 'ALL') {
+        labels = ['2022', '2023', '2024', '2025', '2026'];
+        data = [420000, 530000, 680000, 795000, Math.round(currentNetWorth)];
+      }
+
+      return { labels, data };
+    }
+
+    function initPortfolioChart() {
+      const ctx = document.getElementById('portfolioChart').getContext('2d');
+      const { labels, data } = generateTimeframeData(currentTimeframe);
+
+      const gradient = ctx.createLinearGradient(0, 0, 0, 300);
+      gradient.addColorStop(0, 'rgba(16, 185, 129, 0.35)');
+      gradient.addColorStop(1, 'rgba(16, 185, 129, 0.0)');
+
+      portfolioChartInstance = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: labels,
+          datasets: [{
+            label: 'Net Portfolio',
+            data: data,
+            borderColor: '#10b981',
+            borderWidth: 2.5,
+            pointRadius: 0,
+            pointHoverRadius: 6,
+            pointHoverBackgroundColor: '#10b981',
+            pointHoverBorderColor: '#ffffff',
+            pointHoverBorderWidth: 2,
+            fill: true,
+            backgroundColor: gradient,
+            tension: 0.35
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              mode: 'index',
+              intersect: false,
+              backgroundColor: 'rgba(15, 23, 42, 0.95)',
+              titleColor: '#94a3b8',
+              bodyColor: '#10b981',
+              borderColor: '#334155',
+              borderWidth: 1,
+              bodyFont: { family: 'JetBrains Mono', weight: 'bold', size: 13 },
+              titleFont: { family: 'Inter', size: 11 },
+              padding: 10,
+              displayColors: false,
+              callbacks: {
+                label: (ctx) => formatCurrency(ctx.parsed.y)
+              }
+            }
+          },
+          scales: {
+            x: {
+              grid: { display: false, drawBorder: false },
+              ticks: { color: '#64748b', font: { family: 'Inter', size: 11 } }
+            },
+            y: {
+              position: 'right',
+              grid: { color: 'rgba(51, 65, 85, 0.3)', drawBorder: false },
+              ticks: {
+                color: '#64748b',
+                font: { family: 'JetBrains Mono', size: 11 },
+                callback: (val) => '$' + (val / 1000).toFixed(0) + 'k'
+              }
+            }
+          }
+        }
+      });
+    }
+
+    function initAllocationChart() {
+      const ctx = document.getElementById('allocationChart').getContext('2d');
+      const labels = portfolioData.holdings.map(h => h.symbol);
+      const data = portfolioData.holdings.map(h => h.shares * h.currentPrice);
+      const colors = portfolioData.holdings.map(h => h.color);
+
+      if (allocationChartInstance) {
+        allocationChartInstance.destroy();
+      }
+
+      allocationChartInstance = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+          labels: labels,
+          datasets: [{
+            data: data,
+            backgroundColor: colors,
+            borderWidth: 2,
+            borderColor: '#0f172a',
+            hoverOffset: 6
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          cutout: '72%',
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              backgroundColor: '#0f172a',
+              titleFont: { family: 'Inter' },
+              bodyFont: { family: 'JetBrains Mono' },
+              callbacks: {
+                label: (ctx) => `${ctx.label}: ${formatCurrency(ctx.parsed)}`
+              }
+            }
+          }
+        }
+      });
+    }
+
+    function setTimeframe(tf) {
+      currentTimeframe = tf;
+      document.querySelectorAll('.tf-btn').forEach(b => {
+        b.className = 'tf-btn px-2.5 py-1 text-xs font-semibold rounded-lg text-slate-400 hover:text-white transition';
+      });
+      const activeBtn = document.getElementById(`tf-${tf}`);
+      activeBtn.className = 'tf-btn px-2.5 py-1 text-xs font-semibold rounded-lg bg-emerald-500 text-slate-950 shadow';
+
+      const { labels, data } = generateTimeframeData(tf);
+      portfolioChartInstance.data.labels = labels;
+      portfolioChartInstance.data.datasets[0].data = data;
+      portfolioChartInstance.update();
+    }
+
+    function startRealTimeTicker() {
+      setInterval(() => {
+        if (!isStreamActive) return;
+
+        const randomIndex = Math.floor(Math.random() * portfolioData.holdings.length);
+        const item = portfolioData.holdings[randomIndex];
+        const percentDelta = (Math.random() * 0.4 - 0.19) / 100;
+        const priceDiff = item.currentPrice * percentDelta;
+
+        item.currentPrice = +(item.currentPrice + priceDiff).toFixed(2);
+
+        const rowEl = document.getElementById(`row-${item.symbol}`);
+        const priceEl = document.getElementById(`price-${item.symbol}`);
+        const valEl = document.getElementById(`val-${item.symbol}`);
+
+        if (priceEl && valEl) {
+          priceEl.innerText = formatCurrency(item.currentPrice);
+          valEl.innerText = formatCurrency(item.shares * item.currentPrice);
+
+          const flashClass = priceDiff >= 0 ? 'flash-up' : 'flash-down';
+          rowEl.classList.remove('flash-up', 'flash-down');
+          void rowEl.offsetWidth;
+          rowEl.classList.add(flashClass);
+        }
+
+        updateHeaderValues();
+
+        if (currentTimeframe === '1D' && portfolioChartInstance) {
+          const total = calculateTotalPortfolioValue();
+          const len = portfolioChartInstance.data.datasets[0].data.length;
+          portfolioChartInstance.data.datasets[0].data[len - 1] = Math.round(total);
+          portfolioChartInstance.update('none');
+        }
+
+      }, 1500);
+
+      setInterval(tickMarketUniverse, 2000);
+    }
+
+    function toggleLiveTicks() {
+      isStreamActive = !isStreamActive;
+      const btn = document.getElementById('toggle-stream-btn');
+      btn.innerText = isStreamActive ? 'Pause Feed' : 'Resume Feed';
+      btn.className = isStreamActive
+        ? 'px-3 py-1.5 text-xs font-semibold rounded-lg border border-slate-700 hover:border-slate-500 text-slate-300 transition'
+        : 'px-3 py-1.5 text-xs font-semibold rounded-lg bg-rose-500/20 text-rose-300 border border-rose-500/30 transition';
+    }
+
+    function populateTradeSelect() {
+      const sel = document.getElementById('tradeSymbol');
+      sel.innerHTML = '';
+
+      const addGroup = (label, items, getSymbol, getName) => {
+        if (!items.length) return;
+        const group = document.createElement('optgroup');
+        group.label = label;
+        items.forEach(s => {
+          const opt = document.createElement('option');
+          opt.value = getSymbol(s);
+          opt.text = `${getSymbol(s)} - ${getName(s)}`;
+          group.appendChild(opt);
+        });
+        sel.appendChild(group);
+      };
+
+      addGroup('Your Holdings', portfolioData.holdings, s => s.symbol, s => s.name);
+      addGroup('Watchlist', portfolioData.watchlist, s => s.symbol, s => s.name);
+
+      const heldSymbols = new Set([...portfolioData.holdings, ...portfolioData.watchlist].map(s => s.symbol));
+      const rest = MARKET_UNIVERSE.filter(m => !heldSymbols.has(m.symbol)).sort((a, b) => a.symbol.localeCompare(b.symbol));
+      addGroup('All Markets (Real Tickers)', rest, m => m.symbol, m => m.name);
+
+      updateTradeEstimate();
+    }
+
+    function triggerQuickTrade(sym, type) {
+      if (!document.getElementById('marketsModal').classList.contains('hidden')) closeMarketsModal();
+      openTradeModal();
+      if (type) setTradeType(type);
+      document.getElementById('tradeSymbol').value = sym;
+      updateTradeEstimate();
+    }
+
+    // ---------------------------------------------------------------------
+    // Markets browse panel (real, tradeable stock/ETF/crypto universe)
+    // ---------------------------------------------------------------------
+    function renderMarketSectorChips() {
+      const wrap = document.getElementById('marketSectorChips');
+      wrap.innerHTML = '';
+      MARKET_SECTORS.forEach(sector => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.innerText = sector;
+        btn.onclick = () => setMarketSector(sector);
+        btn.className = sector === currentMarketSector
+          ? 'shrink-0 px-3 py-1 text-[11px] font-semibold rounded-lg bg-emerald-500 text-slate-950 transition'
+          : 'shrink-0 px-3 py-1 text-[11px] font-semibold rounded-lg bg-slate-950/80 border border-slate-800 text-slate-300 hover:border-slate-600 transition';
+        wrap.appendChild(btn);
+      });
+    }
+
+    function setMarketSector(sector) {
+      currentMarketSector = sector;
+      renderMarketSectorChips();
+      renderMarketList();
+    }
+
+    function filterMarketList() {
+      renderMarketList();
+    }
+
+    function renderMarketList() {
+      const q = (document.getElementById('marketSearch').value || '').trim().toLowerCase();
+      const container = document.getElementById('marketListContainer');
+      const heldQty = {};
+      portfolioData.holdings.forEach(h => { heldQty[h.symbol] = h.shares; });
+
+      let items = MARKET_UNIVERSE.slice();
+      if (currentMarketSector !== 'All') items = items.filter(m => m.sector === currentMarketSector);
+      if (q) items = items.filter(m => m.symbol.toLowerCase().includes(q) || m.name.toLowerCase().includes(q));
+      items.sort((a, b) => a.symbol.localeCompare(b.symbol));
+
+      container.innerHTML = '';
+      if (!items.length) {
+        container.innerHTML = '<div class="text-center text-xs text-slate-500 py-10">No tickers match your search.</div>';
+        return;
+      }
+
+      items.forEach(m => {
+        const pct = m.basePrice ? ((m.price - m.basePrice) / m.basePrice) * 100 : 0;
+        const isUp = pct >= 0;
+        const owned = heldQty[m.symbol];
+        const row = document.createElement('div');
+        row.id = `market-row-${m.symbol}`;
+        row.className = 'flex items-center justify-between gap-3 p-3 rounded-xl bg-slate-950/60 border border-slate-800/80 hover:border-slate-700 transition';
+        row.innerHTML = `
+          <div class="min-w-0">
+            <div class="flex items-center gap-2">
+              <span class="font-mono font-bold text-white text-sm">${m.symbol}</span>
+              <span class="text-[9px] uppercase tracking-wide px-1.5 py-0.5 rounded bg-slate-800 text-slate-400">${m.sector}</span>
+              ${owned ? `<span class="text-[9px] uppercase tracking-wide px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">Owned · ${owned}</span>` : ''}
+            </div>
+            <div class="text-[11px] text-slate-400 truncate">${m.name}</div>
+          </div>
+          <div class="flex items-center gap-3 font-mono text-xs shrink-0">
+            <div class="text-right">
+              <div class="text-slate-100 font-semibold" id="market-price-${m.symbol}">${formatCurrency(m.price)}</div>
+              <div class="${isUp ? 'text-emerald-400' : 'text-rose-400'}" id="market-pct-${m.symbol}">${isUp ? '+' : ''}${pct.toFixed(2)}%</div>
+            </div>
+            <button onclick="triggerQuickTrade('${m.symbol}', 'BUY')" class="px-3 py-1.5 rounded-lg bg-emerald-500/15 hover:bg-emerald-500 hover:text-slate-950 text-emerald-400 text-xs font-semibold transition border border-emerald-500/30">
+              Buy
+            </button>
+          </div>
+        `;
+        container.appendChild(row);
+      });
+    }
+
+    function openMarketsModal() {
+      renderMarketSectorChips();
+      renderMarketList();
+      document.getElementById('marketsModal').classList.remove('hidden');
+    }
+
+    function closeMarketsModal() {
+      document.getElementById('marketsModal').classList.add('hidden');
+    }
+
+    function tickMarketUniverse() {
+      if (!isStreamActive) return;
+      // Nudge a handful of random tickers each cycle so the browse list feels live.
+      const ticks = 4;
+      for (let i = 0; i < ticks; i++) {
+        const m = MARKET_UNIVERSE[Math.floor(Math.random() * MARKET_UNIVERSE.length)];
+        const percentDelta = (Math.random() * 0.5 - 0.23) / 100;
+        m.price = Math.max(0.01, +(m.price + m.price * percentDelta).toFixed(2));
+
+        const priceEl = document.getElementById(`market-price-${m.symbol}`);
+        if (priceEl) {
+          const pctEl = document.getElementById(`market-pct-${m.symbol}`);
+          const pct = ((m.price - m.basePrice) / m.basePrice) * 100;
+          const isUp = pct >= 0;
+          priceEl.innerText = formatCurrency(m.price);
+          pctEl.innerText = `${isUp ? '+' : ''}${pct.toFixed(2)}%`;
+          pctEl.className = isUp ? 'text-emerald-400' : 'text-rose-400';
+        }
+
+        // Keep any existing holding of this ticker in sync with the market price.
+        const held = portfolioData.holdings.find(h => h.symbol === m.symbol);
+        if (held) {
+          held.currentPrice = m.price;
+          const priceCell = document.getElementById(`price-${m.symbol}`);
+          const valCell = document.getElementById(`val-${m.symbol}`);
+          if (priceCell) priceCell.innerText = formatCurrency(held.currentPrice);
+          if (valCell) valCell.innerText = formatCurrency(held.shares * held.currentPrice);
+        }
+      }
+      updateHeaderValues();
+    }
+
+    function openTradeModal() {
+      populateTradeSelect();
+      document.getElementById('tradeModal').classList.remove('hidden');
+      document.getElementById('tradeAlertMsg').classList.add('hidden');
+    }
+
+    function closeTradeModal() {
+      document.getElementById('tradeModal').classList.add('hidden');
+    }
+
+    function setTradeType(type) {
+      activeTradeType = type;
+      const buyBtn = document.getElementById('trade-type-buy');
+      const sellBtn = document.getElementById('trade-type-sell');
+      if (type === 'BUY') {
+        buyBtn.className = 'py-1.5 font-bold rounded-lg bg-emerald-500 text-slate-950 shadow text-xs transition';
+        sellBtn.className = 'py-1.5 font-bold rounded-lg text-slate-400 hover:text-white text-xs transition';
+      } else {
+        sellBtn.className = 'py-1.5 font-bold rounded-lg bg-rose-500 text-white shadow text-xs transition';
+        buyBtn.className = 'py-1.5 font-bold rounded-lg text-slate-400 hover:text-white text-xs transition';
+      }
+    }
+
+    function getCurrentPriceFor(symbol) {
+      const foundHold = portfolioData.holdings.find(h => h.symbol === symbol);
+      if (foundHold) return foundHold.currentPrice;
+      const foundWatch = portfolioData.watchlist.find(w => w.symbol === symbol);
+      if (foundWatch) return foundWatch.price;
+      const foundMarket = MARKET_UNIVERSE.find(m => m.symbol === symbol);
+      if (foundMarket) return foundMarket.price;
+      return 150.00;
+    }
+
+    function getNameFor(symbol) {
+      const foundHold = portfolioData.holdings.find(h => h.symbol === symbol);
+      if (foundHold) return foundHold.name;
+      const foundWatch = portfolioData.watchlist.find(w => w.symbol === symbol);
+      if (foundWatch) return foundWatch.name;
+      const foundMarket = MARKET_UNIVERSE.find(m => m.symbol === symbol);
+      if (foundMarket) return foundMarket.name;
+      return `${symbol} Holding`;
+    }
+
+    const HOLDING_COLOR_PALETTE = ['#34d399', '#22d3ee', '#818cf8', '#f472b6', '#fbbf24', '#a78bfa', '#4ade80', '#60a5fa', '#fb923c', '#f87171'];
+    function colorForSymbol(symbol) {
+      let hash = 0;
+      for (let i = 0; i < symbol.length; i++) hash = (hash * 31 + symbol.charCodeAt(i)) >>> 0;
+      return HOLDING_COLOR_PALETTE[hash % HOLDING_COLOR_PALETTE.length];
+    }
+
+    function updateTradeEstimate() {
+      const sym = document.getElementById('tradeSymbol').value;
+      const qty = parseFloat(document.getElementById('tradeQty').value) || 0;
+      const price = getCurrentPriceFor(sym);
+      const total = qty * price;
+
+      document.getElementById('tradeEstimatePrice').innerText = formatCurrency(price);
+      document.getElementById('tradeTotalAmount').innerText = formatCurrency(total);
+    }
+
+    function submitTradeOrder() {
+      const sym = document.getElementById('tradeSymbol').value;
+      const qty = parseFloat(document.getElementById('tradeQty').value) || 0;
+      const price = getCurrentPriceFor(sym);
+      const cost = qty * price;
+      const alertBox = document.getElementById('tradeAlertMsg');
+
+      if (qty <= 0) {
+        alertBox.className = "p-2.5 rounded-lg text-xs font-medium bg-rose-500/20 text-rose-300 border border-rose-500/30";
+        alertBox.innerText = "Please specify a valid quantity.";
+        alertBox.classList.remove('hidden');
+        return;
+      }
+
+      if (activeTradeType === 'BUY') {
+        if (cost > portfolioData.cash) {
+          alertBox.className = "p-2.5 rounded-lg text-xs font-medium bg-rose-500/20 text-rose-300 border border-rose-500/30";
+          alertBox.innerText = `Insufficient funds ($${portfolioData.cash.toLocaleString()}). Deposit cash first.`;
+          alertBox.classList.remove('hidden');
+          return;
+        }
+
+        portfolioData.cash -= cost;
+        let existing = portfolioData.holdings.find(h => h.symbol === sym);
+        if (existing) {
+          existing.shares += qty;
+        } else {
+          portfolioData.holdings.push({
+            symbol: sym,
+            name: getNameFor(sym),
+            shares: qty,
+            currentPrice: price,
+            avgCost: price,
+            color: colorForSymbol(sym),
+            category: 'Equities'
+          });
+        }
+      } else {
+        let existing = portfolioData.holdings.find(h => h.symbol === sym);
+        if (!existing || existing.shares < qty) {
+          alertBox.className = "p-2.5 rounded-lg text-xs font-medium bg-rose-500/20 text-rose-300 border border-rose-500/30";
+          alertBox.innerText = `Insufficient shares: Available position is ${existing ? existing.shares : 0}.`;
+          alertBox.classList.remove('hidden');
+          return;
+        }
+        existing.shares -= qty;
+        portfolioData.cash += cost;
+        if (existing.shares <= 0) {
+          portfolioData.holdings = portfolioData.holdings.filter(h => h.symbol !== sym);
+        }
+      }
+
+      // Record to ledger
+      const auditList = document.getElementById('transactionAuditList');
+      const newAudit = document.createElement('div');
+      newAudit.className = "p-2.5 rounded-xl bg-slate-950/60 border border-slate-800/60 flex items-center justify-between text-xs";
+      newAudit.innerHTML = `
+        <div class="flex items-center gap-2">
+          <span class="px-1.5 py-0.5 rounded ${activeTradeType === 'BUY' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-rose-500/20 text-rose-400'} text-[10px] font-bold">${activeTradeType}</span>
+          <span class="text-white font-semibold">${sym}</span>
+          <span class="text-slate-400">${qty} @ ${formatCurrency(price)}</span>
+        </div>
+        <span class="text-slate-500 font-mono text-[11px]">Just now</span>
+      `;
+      auditList.prepend(newAudit);
+
+      renderHoldingsTable();
+      initAllocationChart();
+      updateHeaderValues();
+      if (!document.getElementById('marketsModal').classList.contains('hidden')) filterMarketList();
+
+      alertBox.className = "p-2.5 rounded-lg text-xs font-medium bg-emerald-500/20 text-emerald-300 border border-emerald-500/30";
+      alertBox.innerText = `Executed ${activeTradeType} for ${qty} ${sym} successfully.`;
+      alertBox.classList.remove('hidden');
+
+      setTimeout(() => {
+        closeTradeModal();
+      }, 1000);
+    }
+
+    function openDepositModal() {
+      document.getElementById('depositModal').classList.remove('hidden');
+    }
+    function closeDepositModal() {
+      document.getElementById('depositModal').classList.add('hidden');
+    }
+    function quickDepositVal(amt) {
+      document.getElementById('depositAmount').value = amt;
+    }
+    function executeDeposit() {
+      const amt = parseFloat(document.getElementById('depositAmount').value) || 0;
+      if (amt > 0) {
+        portfolioData.cash += amt;
+        updateHeaderValues();
+        closeDepositModal();
+      }
+    }
+
+    function runSplashSequence() {
+      const splash = document.getElementById('splashScreen');
+      const appRoot = document.getElementById('appRoot');
+      const progress = document.getElementById('splashProgress');
+
+      requestAnimationFrame(() => {
+        progress.style.transition = 'width 1.5s cubic-bezier(0.2, 0.7, 0.3, 1)';
+        progress.style.width = '100%';
+      });
+
+      setTimeout(() => {
+        splash.classList.add('splash-hide');
+        appRoot.classList.add('app-show');
+        setTimeout(() => {
+          if (splash && splash.parentNode) splash.parentNode.removeChild(splash);
+        }, 600);
+      }, 1750);
+    }
+
+    if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
+      window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      renderHoldingsTable();
+      renderWatchlist();
+      initPortfolioChart();
+      initAllocationChart();
+      startRealTimeTicker();
+      updateHeaderValues();
+      runSplashSequence();
+    });
+  </script>
+</body>
+</html>
